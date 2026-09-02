@@ -76,7 +76,8 @@ void xps_connection_read_handler(xps_connection_t *connection)
 
     buff[read_n] = '\0';
 
-    printf("[CLIENT MESSAGE] %s", buff);
+    // printf("[CLIENT MESSAGE] %s", buff);
+    logger(LOG_INFO, "xps_connection_read_handler()", "[CLIENT MESSAGE] %s", buff);
 
     for (int start = 0, end = strlen(buff) - 2; start < end; start++, end--)
     {
