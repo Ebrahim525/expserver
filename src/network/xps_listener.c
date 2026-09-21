@@ -16,6 +16,10 @@ void listener_connection_handler(void *ptr)
         perror("Error message");
         return;
     }
+    if (make_socket_non_blocking(conn_sock_fd) != OK)
+    {
+        return;
+    }
 
     xps_connection_t *client = xps_connection_create(listener->core, conn_sock_fd);
     if (client == NULL)
@@ -95,7 +99,7 @@ xps_listener_t *xps_listener_create(xps_core_t *core, const char *host, u_int po
     listener->port = port;
     listener->sock_fd = sock_fd;
 
-    xps_loop_attach(core->loop, sock_fd, EPOLLIN, listener, listener_connection_handler);
+    xps_loop_attach(core->loop, sock_fd, EPOLLIN, listener, listener_connection_handler, NULL, NULL);
 
     vec_push(&(core->listeners), listener);
 

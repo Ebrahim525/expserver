@@ -1,6 +1,6 @@
 #include "../xps.h"
 
-loop_event_t *loop_event_create(u_int fd, void *ptr, xps_handler_t read_cb)
+loop_event_t *loop_event_create(u_int fd, void *ptr, xps_handler_t read_cb, xps_handler_t write_cb, xps_handler_t close_cb)
 {
     assert(ptr != NULL);
 
@@ -14,6 +14,8 @@ loop_event_t *loop_event_create(u_int fd, void *ptr, xps_handler_t read_cb)
     event->fd = fd;
     event->ptr = ptr;
     event->read_cb = read_cb;
+    event->write_cb = write_cb;
+    event->close_cb = close_cb;
 
     logger(LOG_DEBUG, "event_create()", "created event");
 
@@ -102,12 +104,12 @@ void xps_loop_destroy(xps_loop_t *loop)
  * @param read_cb : Callback function to be called on a read event
  * @return : OK on success and E_FAIL on error
  */
-int xps_loop_attach(xps_loop_t *loop, u_int fd, int event_flags, void *ptr, xps_handler_t read_cb)
+int xps_loop_attach(xps_loop_t *loop, u_int fd, int event_flags, void *ptr, xps_handler_t read_cb, xps_handler_t write_cb, xps_handler_t close_cb)
 {
     assert(loop != NULL);
     assert(ptr != NULL);
 
-    loop_event_t *loop_event = loop_event_create(fd, ptr, read_cb);
+    loop_event_t *loop_event = loop_event_create(fd, ptr, read_cb, write_cb, close_cb);
     if (loop_event == NULL)
     {
         return E_FAIL;
@@ -194,6 +196,22 @@ void xps_loop_run(xps_loop_t *loop)
             {
                 logger(LOG_DEBUG, "handle_epoll_events()", "event not found. skipping");
                 continue;
+            }
+
+            // Close event
+            if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
+            {
+                logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
+                if (curr_event->close_cb != NULL)
+                    curr_event->close_cb(curr_event->ptr);
+            }
+
+            // Write event
+            if (curr_epoll_event.events & EPOLLOUT)
+            {
+                logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / write");
+                if (curr_event->write_cb != NULL)
+                    curr_event->write_cb(curr_event->ptr);
             }
 
             // Read event

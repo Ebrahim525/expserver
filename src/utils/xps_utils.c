@@ -37,27 +37,27 @@ struct addrinfo *xps_getaddrinfo(const char *host, u_int port)
     return result;
 }
 
-// int make_socket_non_blocking(u_int sock_fd)
-// {
-//     // Get the current socket flags
-//     int flags = fcntl(sock_fd, F_GETFL, 0);
-//     if (flags < 0)
-//     {
-//         logger(LOG_ERROR, "make_socket_non_blocking()", "failed to get flags");
-//         perror("Error message");
-//         return E_FAIL;
-//     }
+int make_socket_non_blocking(u_int sock_fd)
+{
+    // Get the current socket flags
+    int flags = fcntl(sock_fd, F_GETFL, 0);
+    if (flags < 0)
+    {
+        logger(LOG_ERROR, "make_socket_non_blocking()", "failed to get flags");
+        perror("Error message");
+        return E_FAIL;
+    }
 
-//     // Set flags with O_NONBLOCK
-//     if (fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0)
-//     {
-//         logger(LOG_ERROR, "make_socket_non_blocking()", "failed to set flags");
-//         perror("Error message");
-//         return E_FAIL;
-//     }
+    // Set flags with O_NONBLOCK
+    if (fcntl(sock_fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        logger(LOG_ERROR, "make_socket_non_blocking()", "failed to set flags");
+        perror("Error message");
+        return E_FAIL;
+    }
 
-//     return OK;
-// }
+    return OK;
+}
 
 char *get_remote_ip(u_int sock_fd)
 {
@@ -82,4 +82,25 @@ char *get_remote_ip(u_int sock_fd)
     inet_ntop(AF_INET, &addr.sin_addr, ip_str, INET_ADDRSTRLEN);
 
     return ip_str;
+}
+
+void vec_filter_null(vec_void_t *v)
+{
+    assert(v != NULL);
+
+    vec_void_t temp;
+    vec_init(&temp);
+
+    for (int i = 0; i < v->length; i++)
+    {
+        void *curr = v->data[i];
+        if (curr != NULL)
+            vec_push(&temp, curr);
+    }
+
+    vec_clear(v);
+    for (int i = 0; i < temp.length; i++)
+        vec_push(v, temp.data[i]);
+
+    vec_deinit(&temp);
 }
