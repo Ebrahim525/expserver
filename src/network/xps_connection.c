@@ -92,14 +92,14 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         return NULL;
     }
 
-    xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler);
-
     xps_buffer_list_t *buffer_list = xps_buffer_list_create();
     if (buffer_list == NULL)
     {
         logger(LOG_ERROR, "xps_connection_create()", "xps_buffer_list_create() failed");
         return NULL;
     }
+
+    xps_loop_attach(core->loop, sock_fd, EPOLLIN, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler);
 
     connection->core = core;
     connection->sock_fd = sock_fd;
