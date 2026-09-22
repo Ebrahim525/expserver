@@ -39,6 +39,11 @@ bool handle_connections(xps_loop_t *loop)
     {
         xps_connection_t *connection = loop->core->connections.data[i];
 
+        if (connection == NULL)
+        {
+            continue;
+        }
+
         if (connection->read_ready == true)
         {
             connection->recv_handler(connection);
@@ -49,7 +54,7 @@ bool handle_connections(xps_loop_t *loop)
         for (int i = 0; i < loop->events.length; i++)
         {
             loop_event_t *curr_event = loop->events.data[i];
-            if (connection->sock_fd == curr_event->fd)
+            if (curr_event != NULL && connection->sock_fd == curr_event->fd)
             {
                 conn_fd = i;
             }
