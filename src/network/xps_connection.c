@@ -1,5 +1,20 @@
 #include "../xps.h"
 
+void connection_loop_read_handler(void *ptr)
+{
+    assert(ptr != NULL);
+
+    xps_connection_t *connection = ptr;
+    connection->read_ready = true;
+}
+void connection_loop_write_handler(void *ptr)
+{
+    assert(ptr != NULL);
+
+    xps_connection_t *connection = ptr;
+    connection->write_ready = true;
+}
+
 void connection_loop_close_handler(void *ptr)
 {
     assert(ptr != NULL);
@@ -93,21 +108,6 @@ void connection_read_handler(void *ptr)
     connection_loop_write_handler(ptr);
 }
 
-void connection_loop_read_handler(void *ptr)
-{
-    assert(ptr != NULL);
-
-    xps_connection_t *connection = ptr;
-    connection->read_ready = true;
-}
-void connection_loop_write_handler(void *ptr)
-{
-    assert(ptr != NULL);
-
-    xps_connection_t *connection = ptr;
-    connection->write_ready = true;
-}
-
 xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
 {
     xps_connection_t *connection = malloc(sizeof(xps_connection_t));
@@ -117,7 +117,7 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         return NULL;
     }
 
-    xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler);
+    xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT | EPOLLET, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler);
 
     xps_buffer_list_t *buffer_list = xps_buffer_list_create();
     if (buffer_list == NULL)

@@ -12,8 +12,12 @@ void listener_connection_handler(void *ptr)
     while (1)
     {
         int conn_sock_fd = accept(listener->sock_fd, &conn_addr, &conn_addr_len);
-        if (conn_sock_fd < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        if (conn_sock_fd < 0)
         {
+            if ((errno == EAGAIN || errno == EWOULDBLOCK))
+            {
+                break;
+            }
             logger(LOG_ERROR, "xps_listener_connection_handler()", "accept() failed");
             perror("Error message");
             break;
@@ -102,7 +106,7 @@ xps_listener_t *xps_listener_create(xps_core_t *core, const char *host, u_int po
     listener->port = port;
     listener->sock_fd = sock_fd;
 
-    xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT, listener, listener_connection_handler, NULL, NULL);
+    xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLET, listener, listener_connection_handler, NULL, NULL);
 
     vec_push(&(core->listeners), listener);
 

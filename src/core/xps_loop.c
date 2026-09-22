@@ -57,7 +57,7 @@ bool handle_connections(xps_loop_t *loop)
 
         if (conn_fd == -1)
         {
-            return false;
+            continue;
         }
 
         if (connection->write_ready == true && connection->write_buff_list->len > 0)
