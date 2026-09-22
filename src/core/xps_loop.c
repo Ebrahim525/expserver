@@ -31,6 +31,58 @@ void loop_event_destroy(loop_event_t *event)
     logger(LOG_DEBUG, "event_destroy()", "destroyed event");
 }
 
+bool handle_connections(xps_loop_t *loop)
+{
+    assert(loop != NULL);
+
+    for (int i = 0; i < loop->core->connections.length; i++)
+    {
+        xps_connection_t *connection = loop->core->connections.data[i];
+
+        if (connection->read_ready == true)
+        {
+            connection->recv_handler(connection);
+        }
+
+        // check if connection still exists
+        int conn_fd = -1;
+        for (int i = 0; i < loop->events.length; i++)
+        {
+            loop_event_t *curr_event = loop->events.data[i];
+            if (connection->sock_fd == curr_event->fd)
+            {
+                conn_fd = i;
+            }
+        }
+
+        if (conn_fd == -1)
+        {
+            return false;
+        }
+
+        if (connection->write_ready == true && connection->write_buff_list->len > 0)
+            connection->send_handler(connection);
+    }
+
+    for (int i = 0; i < loop->core->connections.length; i++)
+    {
+        xps_connection_t *connection = loop->core->connections.data[i];
+
+        if (connection == NULL)
+        {
+            continue;
+        }
+
+        if (connection->read_ready == true)
+            return true;
+
+        if (connection->write_ready == true && connection->write_buff_list->len > 0)
+            return true;
+    }
+
+    return false;
+}
+
 /**
  * Creates a new event loop instance associated with the given core.
  *
@@ -167,8 +219,14 @@ void xps_loop_run(xps_loop_t *loop)
 
     while (1)
     {
+        int timeout = -1;
+        bool has_ready_connections = handle_connections(loop);
+        if (has_ready_connections)
+        {
+            timeout = 0;
+        }
         logger(LOG_DEBUG, "xps_loop_run()", "epoll wait");
-        int n_events = epoll_wait(loop->epoll_fd, loop->epoll_events, MAX_EPOLL_EVENTS, -1);
+        int n_events = epoll_wait(loop->epoll_fd, loop->epoll_events, MAX_EPOLL_EVENTS, timeout);
         logger(LOG_DEBUG, "xps_loop_run()", "epoll wait over");
 
         logger(LOG_DEBUG, "xps_loop_run()", "handling %d events", n_events);
