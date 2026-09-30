@@ -31,61 +31,176 @@ void loop_event_destroy(loop_event_t *event)
     logger(LOG_DEBUG, "event_destroy()", "destroyed event");
 }
 
-bool handle_connections(xps_loop_t *loop)
+// bool handle_connections(xps_loop_t *loop)
+// {
+//     assert(loop != NULL);
+
+//     for (int i = 0; i < loop->core->connections.length; i++)
+//     {
+//         xps_connection_t *connection = loop->core->connections.data[i];
+
+//         if (connection == NULL)
+//         {
+//             continue;
+//         }
+
+//         if (connection->read_ready == true)
+//         {
+//             connection->recv_handler(connection);
+//         }
+
+//         // check if connection still exists
+//         int conn_fd = -1;
+//         for (int i = 0; i < loop->events.length; i++)
+//         {
+//             loop_event_t *curr_event = loop->events.data[i];
+//             if (curr_event != NULL && connection->sock_fd == curr_event->fd)
+//             {
+//                 conn_fd = i;
+//             }
+//         }
+
+//         if (conn_fd == -1)
+//         {
+//             continue;
+//         }
+
+//         if (connection->write_ready == true && connection->write_buff_list->len > 0)
+//             connection->send_handler(connection);
+//     }
+
+//     for (int i = 0; i < loop->core->connections.length; i++)
+//     {
+//         xps_connection_t *connection = loop->core->connections.data[i];
+
+//         if (connection == NULL)
+//         {
+//             continue;
+//         }
+
+//         if (connection->read_ready == true)
+//             return true;
+
+//         if (connection->write_ready == true && connection->write_buff_list->len > 0)
+//             return true;
+//     }
+
+//     return false;
+// }
+
+bool handle_pipes(xps_loop_t *loop)
 {
     assert(loop != NULL);
-
-    for (int i = 0; i < loop->core->connections.length; i++)
+    for (int i = 0; i < loop->core->pipes.length; i++)
     {
-        xps_connection_t *connection = loop->core->connections.data[i];
-
-        if (connection == NULL)
+        xps_pipe_t *pipe = loop->core->pipes.data[i];
+        if (!pipe)
         {
             continue;
+
+            /*Destroy the pipe if it has no source and sink and continue*/
         }
 
-        if (connection->read_ready == true)
+        if (!(pipe->source) && !(pipe->sink))
         {
-            connection->recv_handler(connection);
+            xps_pipe_destroy(pipe);
         }
 
-        // check if connection still exists
-        int conn_fd = -1;
-        for (int i = 0; i < loop->events.length; i++)
+        if (pipe->source->ready && !(pipe->source->active))
         {
-            loop_event_t *curr_event = loop->events.data[i];
-            if (curr_event != NULL && connection->sock_fd == curr_event->fd)
-            {
-                conn_fd = i;
-            }
+            pipe->source->handler_cb(pipe->source);
         }
 
-        if (conn_fd == -1)
+        if (pipe->sink->ready && !(pipe->sink->active))
         {
-            continue;
+            pipe->sink->handler_cb(pipe->sink);
         }
 
-        if (connection->write_ready == true && connection->write_buff_list->len > 0)
-            connection->send_handler(connection);
+        if (!(pipe->sink))
+        {
+            pipe->source->active = false;
+            pipe->source->close_cb(pipe->source);
+        }
+
+        if (!(pipe->source) && !(pipe->sink->ready))
+        {
+            pipe->sink->active = false;
+            pipe->sink->close_cb(pipe->sink);
+        }
     }
 
-    for (int i = 0; i < loop->core->connections.length; i++)
+    for (int i = 0; i < loop->core->pipes.length; i++)
     {
-        xps_connection_t *connection = loop->core->connections.data[i];
-
-        if (connection == NULL)
+        xps_pipe_t *pipe = loop->core->pipes.data[i];
+        if (pipe == NULL)
         {
+            logger(LOG_DEBUG, "handle_pipes", "pipe is null");
             continue;
         }
-
-        if (connection->read_ready == true)
+        if (pipe->source && pipe->source->ready && pipe->source->active)
+        {
             return true;
-
-        if (connection->write_ready == true && connection->write_buff_list->len > 0)
+        }
+        if (pipe->sink && pipe->sink->ready && pipe->sink->active)
+        {
             return true;
+        }
+        if (pipe->source && !(pipe->sink))
+        {
+            return true;
+        }
+        if (pipe->sink && !(pipe->source) && !(pipe->sink->ready))
+        {
+            return true;
+        }
     }
-
     return false;
+}
+
+void filter_nulls(xps_core_t *core)
+{
+    /*check whether number of nulls in each of events, listeners, connections, pipes list
+        exceeds DEFAULT_NULLS_THRESH and filter nulls using vec_filter_null() and set
+        number of nulls in each list to 0*/
+
+    int connection_null = 0;
+    int listener_null = 0;
+    int pipe_null = 0;
+
+    for (int i = 0; i < core->connections.length; i++)
+    {
+        xps_connection_t *connection = core->connections.data[i];
+        if (connection == NULL)
+        {
+            connection_null++;
+        }
+    }
+    if (connection_null > DEFAULT_NULLS_THRESH)
+    {
+        vec_filter_null(&(core->connections));
+    }
+
+    for (int i = 0; i < core->listeners.length; i++)
+    {
+        xps_listener_t *listener = core->listeners.data[i];
+        if (listener == NULL)
+        {
+            listener++;
+        }
+    }
+    if (connection_null > DEFAULT_NULLS_THRESH)
+    {
+        vec_filter_null(&(core->connections));
+    }
+
+    for (int i = 0; i < core->pipes.length; i++)
+    {
+        xps_pipe_t *pipe = core->pipes.data[i];
+        if (pipe == NULL)
+        {
+            pipe_null++;
+        }
+    }
 }
 
 /**

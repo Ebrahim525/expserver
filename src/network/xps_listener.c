@@ -34,6 +34,10 @@ void listener_connection_handler(void *ptr)
             close(conn_sock_fd);
             return;
         }
+
+        // Creates pipe for the connection created
+        xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
+
         client->listener = listener;
 
         logger(LOG_INFO, "xps_listener_connection_handler()", "new connection");
