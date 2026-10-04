@@ -45,25 +45,26 @@ bool handle_pipes(xps_loop_t *loop)
         if (!(pipe->source) && !(pipe->sink))
         {
             xps_pipe_destroy(pipe);
+            continue;
         }
 
-        if (pipe->source && pipe->source->ready && xps_pipe_is_writable(pipe))
+        if (pipe && pipe->source && pipe->source->ready && xps_pipe_is_writable(pipe))
         {
             pipe->source->handler_cb(pipe->source);
         }
 
-        if (pipe->sink && pipe->sink->ready && xps_pipe_is_readable(pipe))
+        if (pipe && pipe->sink && pipe->sink->ready && xps_pipe_is_readable(pipe))
         {
             pipe->sink->handler_cb(pipe->sink);
         }
 
-        if (pipe->source && !(pipe->sink))
+        if (pipe && pipe->source && !(pipe->sink))
         {
             pipe->source->active = false;
             pipe->source->close_cb(pipe->source);
         }
 
-        if (pipe->sink && !(pipe->source) && !xps_pipe_is_readable(pipe))
+        if (pipe && pipe->sink && !(pipe->source) && !xps_pipe_is_readable(pipe))
         {
             pipe->sink->active = false;
             pipe->sink->close_cb(pipe->sink);
@@ -83,7 +84,6 @@ bool handle_pipes(xps_loop_t *loop)
             return true;
         }
         if (pipe->sink && pipe->sink->ready && xps_pipe_is_readable(pipe))
-            ;
         {
             return true;
         }
@@ -105,43 +105,19 @@ void filter_nulls(xps_core_t *core)
         exceeds DEFAULT_NULLS_THRESH and filter nulls using vec_filter_null() and set
         number of nulls in each list to 0*/
 
-    int connection_null = 0;
-    int listener_null = 0;
-    int pipe_null = 0;
-
-    for (int i = 0; i < core->connections.length; i++)
-    {
-        xps_connection_t *connection = core->connections.data[i];
-        if (connection == NULL)
-        {
-            connection_null++;
-        }
-    }
-    if (connection_null > DEFAULT_NULLS_THRESH)
+    if (core->n_null_connections > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->connections));
     }
 
-    for (int i = 0; i < core->listeners.length; i++)
+    if (core->n_null_listeners > DEFAULT_NULLS_THRESH)
     {
-        xps_listener_t *listener = core->listeners.data[i];
-        if (listener == NULL)
-        {
-            listener++;
-        }
-    }
-    if (connection_null > DEFAULT_NULLS_THRESH)
-    {
-        vec_filter_null(&(core->connections));
+        vec_filter_null(&(core->listeners));
     }
 
-    for (int i = 0; i < core->pipes.length; i++)
+    if (core->n_null_pipes > DEFAULT_NULLS_THRESH)
     {
-        xps_pipe_t *pipe = core->pipes.data[i];
-        if (pipe == NULL)
-        {
-            pipe_null++;
-        }
+        vec_filter_null(&(core->pipes));
     }
 }
 
@@ -173,16 +149,6 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             continue;
         }
 
-        // Close event
-        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
-        {
-            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
-            if (curr_event->close_cb != NULL)
-            {
-                curr_event->close_cb(curr_event->ptr);
-            }
-        }
-
         // Write event
         if (curr_epoll_event.events & EPOLLOUT)
         {
@@ -200,6 +166,16 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             if (curr_event->read_cb != NULL)
             {
                 curr_event->read_cb(curr_event->ptr);
+            }
+        }
+
+        // Close event
+        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
+        {
+            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
+            if (curr_event->close_cb != NULL)
+            {
+                curr_event->close_cb(curr_event->ptr);
             }
         }
     }
@@ -288,17 +264,19 @@ int xps_loop_attach(xps_loop_t *loop, u_int fd, int event_flags, void *ptr, xps_
     {
         return E_FAIL;
     }
-    vec_push(&loop->events, loop_event);
 
     struct epoll_event event;
     event.events = event_flags;
     event.data.ptr = loop_event;
-    if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, &event) == 0)
+    if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, &event) != 0)
     {
-        return OK;
+        loop_event_destroy(loop_event);
+        return E_FAIL;
     }
 
-    return E_FAIL;
+    vec_push(&loop->events, loop_event);
+
+    return OK;
 }
 
 /**

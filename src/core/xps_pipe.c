@@ -15,7 +15,7 @@ xps_pipe_t *xps_pipe_create(xps_core_t *core, size_t buff_thresh, xps_pipe_sourc
     }
 
     /*Create buff_list instance*/
-    xps_buffer_list_t *buff_list = malloc(sizeof(xps_buffer_list_t));
+    xps_buffer_list_t *buff_list = xps_buffer_list_create();
 
     // Init values
     pipe->core = core;
@@ -23,6 +23,20 @@ xps_pipe_t *xps_pipe_create(xps_core_t *core, size_t buff_thresh, xps_pipe_sourc
     pipe->sink = sink;
     pipe->buff_list = buff_list;
     pipe->buff_thresh = buff_thresh;
+
+    if (xps_pipe_attach_source(pipe, source) != OK)
+    {
+        logger(LOG_ERROR, "xps_pipe_create()", "source attach failed");
+        return NULL;
+    }
+    pipe->source->active = true;
+
+    if (xps_pipe_attach_sink(pipe, sink) != OK)
+    {
+        logger(LOG_ERROR, "xps_pipe_create()", "sink attach failed");
+        return NULL;
+    }
+    pipe->sink->active = true;
 
     vec_push(&(core->pipes), pipe);
 
@@ -47,7 +61,7 @@ void xps_pipe_destroy(xps_pipe_t *pipe)
     }
 
     /*Destroy the buff_list of pipe*/
-    free(pipe->buff_list);
+    xps_buffer_list_destroy(pipe->buff_list);
 
     // Detach source
     xps_pipe_detach_source(pipe);
@@ -117,7 +131,7 @@ int xps_pipe_attach_sink(xps_pipe_t *pipe, xps_pipe_sink_t *sink)
     }
 
     pipe->sink = sink;
-    sink->pipe = sink;
+    sink->pipe = pipe;
 
     return OK;
 }
@@ -236,13 +250,12 @@ xps_pipe_sink_t *xps_pipe_sink_create(void *ptr, xps_handler_t handler_cb, xps_h
 
 void xps_pipe_sink_destroy(xps_pipe_sink_t *sink)
 {
-    /*assert sink not null*/
     assert(sink != NULL);
 
     // Detach from pipe
     if (sink->pipe != NULL)
     {
-        sink->pipe->source = NULL;
+        sink->pipe->sink = NULL;
     }
     free(sink);
 

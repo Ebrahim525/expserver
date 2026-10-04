@@ -1,5 +1,13 @@
 #include "../xps.h"
 
+void connection_close(xps_connection_t *connection, bool peer_closed)
+{
+    assert(connection != NULL);
+
+    logger(LOG_INFO, "connection_close()", peer_closed ? "peer closed connection" : "closing connection");
+    xps_connection_destroy(connection);
+}
+
 void connection_source_handler(void *ptr)
 {
     assert(ptr != NULL);
@@ -130,14 +138,6 @@ void connection_sink_close_handler(void *ptr)
     }
 }
 
-void connection_close(xps_connection_t *connection, bool peer_closed)
-{
-    assert(connection != NULL);
-
-    logger(LOG_INFO, "connection_close()", peer_closed ? "peer closed connection" : "closing connection");
-    xps_connection_destroy(connection);
-}
-
 void connection_loop_read_handler(void *ptr)
 {
     assert(ptr != NULL);
@@ -179,7 +179,7 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         return NULL;
     }
 
-    xps_pipe_sink_t *sink = xps_pipe_pink_create(connection, connection_sink_handler, connection_sink_close_handler);
+    xps_pipe_sink_t *sink = xps_pipe_sink_create(connection, connection_sink_handler, connection_sink_close_handler);
     if (sink == NULL)
     {
         logger(LOG_ERROR, "xps_connection_create()", "malloc() failed for 'sink'");
