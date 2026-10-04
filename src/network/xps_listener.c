@@ -36,7 +36,12 @@ void listener_connection_handler(void *ptr)
         }
 
         // Creates pipe for the connection created
-        xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
+        xps_pipe_t *pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
+        if (!pipe)
+        {
+            logger(LOG_ERROR, "xps_listener_connection_handler()", "pipe creation failed");
+            return;
+        }
 
         client->listener = listener;
 

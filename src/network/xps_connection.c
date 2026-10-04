@@ -86,13 +86,7 @@ void connection_sink_handler(void *ptr)
     xps_pipe_sink_t *sink = ptr;
     xps_connection_t *connection = sink->ptr;
 
-    int pipe_threshold = DEFAULT_BUFFER_SIZE;
-    int size = sink->pipe->buff_thresh - sink->pipe->buff_list->len;
-    if (pipe_threshold > size)
-    {
-        pipe_threshold = size;
-    }
-    xps_buffer_t *buff = xps_pipe_sink_read(sink, pipe_threshold);
+    xps_buffer_t *buff = xps_pipe_sink_read(sink, sink->pipe->buff_list->len);
     if (buff == NULL)
     {
         logger(LOG_ERROR, "connection_sink_handler()", "xps_pipe_sink_read() failed");
@@ -195,8 +189,6 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
     connection->source = source;
     connection->sink = sink;
 
-    vec_push(&(connection->core->connections), connection);
-
     if (xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT | EPOLLET, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler) != OK)
     {
         logger(LOG_ERROR, "xps_connection_create()", "xps_loop_attach() failed");
@@ -205,6 +197,8 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         free(connection);
         return NULL;
     }
+
+    vec_push(&(connection->core->connections), connection);
 
     logger(LOG_DEBUG, "xps_connection_create()", "created connection");
     return connection;

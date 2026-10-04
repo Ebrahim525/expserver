@@ -19,8 +19,8 @@ xps_pipe_t *xps_pipe_create(xps_core_t *core, size_t buff_thresh, xps_pipe_sourc
 
     // Init values
     pipe->core = core;
-    pipe->source = source;
-    pipe->sink = sink;
+    pipe->source = NULL;
+    pipe->sink = NULL;
     pipe->buff_list = buff_list;
     pipe->buff_thresh = buff_thresh;
 

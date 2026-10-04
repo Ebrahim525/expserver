@@ -169,6 +169,8 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             }
         }
 
+        // Check if exists
+
         // Close event
         if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
         {
@@ -304,7 +306,7 @@ int xps_loop_detach(xps_loop_t *loop, u_int fd)
                 return E_FAIL;
             }
 
-            free(loop_event);
+            loop_event_destroy(loop_event);
             loop->events.data[i] = NULL;
             loop->n_null_events = loop->n_null_events + 1;
         }
