@@ -24,7 +24,7 @@ xps_pipe_t *xps_pipe_create(xps_core_t *core, size_t buff_thresh, xps_pipe_sourc
     pipe->buff_list = buff_list;
     pipe->buff_thresh = buff_thresh;
 
-    /* Add pipe to 'pipes' list of core (see core module below)*/
+    vec_push(&(core->pipes), pipe);
 
     logger(LOG_DEBUG, "xps_pipe_create()", "created pipe");
 
@@ -36,9 +36,24 @@ void xps_pipe_destroy(xps_pipe_t *pipe)
     assert(pipe != NULL);
 
     /*Set NULL in 'pipes' list of core and increment n_null_pipes*/
+    for (int i = 0; i < pipe->core->pipes.length; i++)
+    {
+        xps_pipe_t *curr_pipe = pipe->core->pipes.data[i];
+        if (curr_pipe && pipe == curr_pipe)
+        {
+            pipe->core->pipes.data[i] = NULL;
+            pipe->core->n_null_pipes += 1;
+        }
+    }
 
     /*Destroy the buff_list of pipe*/
     free(pipe->buff_list);
+
+    // Detach source
+    xps_pipe_detach_source(pipe);
+
+    // Detach sink
+    xps_pipe_detach_sink(pipe);
 
     /*Free the pipe*/
     free(pipe);
@@ -57,7 +72,7 @@ bool xps_pipe_is_writable(xps_pipe_t *pipe)
 {
     assert(pipe != NULL);
 
-    return pipe->buff_list->len < DEFAULT_PIPE_BUFF_THRESH;
+    return pipe->buff_list->len < pipe->buff_thresh;
 }
 
 int xps_pipe_attach_source(xps_pipe_t *pipe, xps_pipe_source_t *source)
@@ -165,7 +180,6 @@ void xps_pipe_source_destroy(xps_pipe_source_t *source)
 
 int xps_pipe_source_write(xps_pipe_source_t *source, xps_buffer_t *buff)
 {
-    /*assert source, buff not null*/
     assert(source != NULL);
     assert(buff != NULL);
 
@@ -237,7 +251,6 @@ void xps_pipe_sink_destroy(xps_pipe_sink_t *sink)
 
 xps_buffer_t *xps_pipe_sink_read(xps_pipe_sink_t *sink, size_t len)
 {
-    /*assert sink not null and len greater than 0*/
     assert(sink != NULL);
     assert(len > 0);
 

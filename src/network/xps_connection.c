@@ -14,7 +14,12 @@ void connection_source_handler(void *ptr)
         return;
     }
 
-    int pipe_threshold = 0;
+    int pipe_threshold = DEFAULT_BUFFER_SIZE;
+    int size = source->pipe->buff_thresh - source->pipe->buff_list->len;
+    if (pipe_threshold > size)
+    {
+        pipe_threshold = size;
+    }
     int read_n = recv(connection->sock_fd, buff->data, pipe_threshold, 0);
     buff->len = read_n;
 
@@ -73,7 +78,13 @@ void connection_sink_handler(void *ptr)
     xps_pipe_sink_t *sink = ptr;
     xps_connection_t *connection = sink->ptr;
 
-    xps_buffer_t *buff = xps_pipe_sink_read(sink, );
+    int pipe_threshold = DEFAULT_BUFFER_SIZE;
+    int size = sink->pipe->buff_thresh - sink->pipe->buff_list->len;
+    if (pipe_threshold > size)
+    {
+        pipe_threshold = size;
+    }
+    xps_buffer_t *buff = xps_pipe_sink_read(sink, pipe_threshold);
     if (buff == NULL)
     {
         logger(LOG_ERROR, "connection_sink_handler()", "xps_pipe_sink_read() failed");
@@ -81,7 +92,7 @@ void connection_sink_handler(void *ptr)
     }
 
     // Write to socket
-    int write_n = send(/*fill this*/, MSG_NOSIGNAL);
+    int write_n = send(connection->sock_fd, buff->data, buff->len, MSG_NOSIGNAL);
 
     xps_buffer_destroy(buff);
 
@@ -127,97 +138,28 @@ void connection_close(xps_connection_t *connection, bool peer_closed)
     xps_connection_destroy(connection);
 }
 
+void connection_loop_read_handler(void *ptr)
+{
+    assert(ptr != NULL);
+
+    xps_connection_t *connection = ptr;
+    connection->source->ready = true;
+}
+
+void connection_loop_write_handler(void *ptr)
+{
+    assert(ptr != NULL);
+
+    xps_connection_t *connection = ptr;
+    connection->sink->ready = true;
+}
+
 void connection_loop_close_handler(void *ptr)
 {
     assert(ptr != NULL);
 
     xps_connection_t *connection = ptr;
-
-    xps_connection_destroy(connection);
-}
-void connection_write_handler(void *ptr)
-{
-    assert(ptr != NULL);
-
-    xps_connection_t *connection = ptr;
-
-    xps_buffer_t *buffer = xps_buffer_list_read(connection->write_buff_list, connection->write_buff_list->len);
-
-    ssize_t write_n = send(connection->sock_fd, buffer->pos, buffer->len, 0);
-
-    xps_buffer_destroy(buffer);
-
-    if (write_n == -1)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-            connection->write_ready = false;
-        }
-        else
-        {
-            xps_connection_destroy(connection);
-        }
-
-        return;
-    }
-
-    xps_buffer_list_clear(connection->write_buff_list, write_n);
-}
-
-void connection_read_handler(void *ptr)
-{
-    /* validate params*/
-    assert(ptr != NULL);
-
-    xps_connection_t *connection = ptr;
-
-    char buff[DEFAULT_BUFFER_SIZE];
-    ssize_t read_n = recv(connection->sock_fd, buff, DEFAULT_BUFFER_SIZE - 1, 0);
-    if (read_n < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-            connection->read_ready = false;
-            return;
-        }
-        else
-        {
-            logger(LOG_ERROR, "xps_connection_read_handler()", "recv() failed");
-            perror("Error message");
-            xps_connection_destroy(connection);
-            return;
-        }
-    }
-    if (read_n == 0)
-    {
-        logger(LOG_INFO, "xps_connection_read_handler()", "peer closed connection");
-        xps_connection_destroy(connection);
-        return;
-    }
-
-    buff[read_n] = '\0';
-
-    // printf("[CLIENT MESSAGE] %s", buff);
-    logger(LOG_INFO, "xps_connection_read_handler()", "[CLIENT MESSAGE] %s", buff);
-
-    for (int start = 0, end = strlen(buff) - 2; start < end; start++, end--)
-    {
-        char temp = buff[start];
-        buff[start] = buff[end];
-        buff[end] = temp;
-    }
-
-    xps_buffer_t *buffer = xps_buffer_create(read_n, read_n, NULL);
-    if (buffer == NULL)
-    {
-        logger(LOG_ERROR, "xps_buffer__create()", "failed");
-        return;
-    }
-    memcpy(buffer->data, buff, read_n);
-
-    xps_buffer_list_append(connection->write_buff_list, buffer);
-
-    connection_loop_write_handler(ptr);
+    connection_close(connection, true);
 }
 
 xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
@@ -229,7 +171,7 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         return NULL;
     }
 
-    xps_pipe_source_t *source = xps_pipe_source_create(connection, xps_pipe_source_write, xps_pipe_source_destroy);
+    xps_pipe_source_t *source = xps_pipe_source_create(connection, connection_source_handler, connection_source_close_handler);
     if (source == NULL)
     {
         logger(LOG_ERROR, "xps_connection_create()", "malloc() failed for 'source'");
@@ -237,7 +179,7 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
         return NULL;
     }
 
-    xps_pipe_sink_t *sink = xps_pipe_pink_create(connection, xps_pipe_sink_read, xps_pipe_sink_destroy);
+    xps_pipe_sink_t *sink = xps_pipe_pink_create(connection, connection_sink_handler, connection_sink_close_handler);
     if (sink == NULL)
     {
         logger(LOG_ERROR, "xps_connection_create()", "malloc() failed for 'sink'");
@@ -252,9 +194,10 @@ xps_connection_t *xps_connection_create(xps_core_t *core, u_int sock_fd)
     connection->remote_ip = get_remote_ip(sock_fd);
     connection->source = source;
     connection->sink = sink;
+
     vec_push(&(connection->core->connections), connection);
 
-    if (xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT | EPOLLET, connection, source->handler_cb, sink->handler_cb, connection_loop_close_handler) != OK)
+    if (xps_loop_attach(core->loop, sock_fd, EPOLLIN | EPOLLOUT | EPOLLET, connection, connection_loop_read_handler, connection_loop_write_handler, connection_loop_close_handler) != OK)
     {
         logger(LOG_ERROR, "xps_connection_create()", "xps_loop_attach() failed");
         xps_pipe_source_destroy(source);
