@@ -35,13 +35,26 @@ void listener_connection_handler(void *ptr)
             return;
         }
 
-        // Creates pipe for the connection created
-        xps_pipe_t *pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
-        if (!pipe)
+        xps_pipe_t *pipe;
+
+        if (listener->port == 8001)
         {
-            logger(LOG_ERROR, "xps_listener_connection_handler()", "pipe creation failed");
-            return;
+            xps_connection_t *upstream_connection = xps_upstream_create(listener->core, "127.0.0.1", 3000);
+            upstream_connection->listener = listener;
+            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, upstream_connection->sink);
+            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, upstream_connection->source, client->sink);
         }
+        else
+        {
+            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
+            // if (!pipe)
+            // {
+            //     logger(LOG_ERROR, "xps_listener_connection_handler()", "pipe creation failed");
+            //     return;
+            // }
+        }
+
+        // check pipe error
 
         client->listener = listener;
 
