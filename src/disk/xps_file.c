@@ -26,7 +26,7 @@ void file_source_handler(void *ptr)
         logger(LOG_ERROR, "file_source_handler()", "read errors");
 
         xps_buffer_destroy(buff);
-        fclose(file->file_struct);
+        xps_file_destroy(file);
 
         return;
     }
@@ -35,7 +35,7 @@ void file_source_handler(void *ptr)
     if (read_n == 0 && feof(file->file_struct))
     {
         xps_buffer_destroy(buff);
-        fclose(file->file_struct);
+        xps_file_destroy(file);
 
         return;
     }
@@ -60,7 +60,7 @@ void file_source_handler(void *ptr)
         logger(LOG_ERROR, "file_source_handler()", "xps_pipe_source_write() failed");
 
         xps_buffer_destroy(buff);
-        fclose(file->file_struct);
+        xps_file_destroy(file);
 
         return;
     }
@@ -88,7 +88,7 @@ xps_file_t *xps_file_create(xps_core_t *core, const char *file_path, int *error)
 
     // check if the file is in the public directory
     char *resolved_path = realpath(file_path, NULL);
-    char *resolved_public = realpath("../public", NULL);
+    char *resolved_public = realpath("public", NULL);
 
     if (!resolved_path || !resolved_public)
     {
@@ -158,11 +158,19 @@ xps_file_t *xps_file_create(xps_core_t *core, const char *file_path, int *error)
     const char *mime_type = xps_get_mime(file_path);
 
     xps_file_t *file = malloc(sizeof(xps_file_t));
+    if (file == NULL)
+    {
+        logger(LOG_ERROR, "xps_file_create()", "malloc() failed for 'file'");
+        fclose(file_struct);
+
+        return NULL;
+    }
 
     xps_pipe_source_t *source = xps_pipe_source_create((void *)file, file_source_handler, file_source_fclose_handler);
     if (!source)
     {
         fclose(file_struct);
+        free(file);
 
         return NULL;
     }
@@ -171,7 +179,7 @@ xps_file_t *xps_file_create(xps_core_t *core, const char *file_path, int *error)
 
     file->core = core;
     file->file_path = file_path;
-    file->file_struct = file->file_struct;
+    file->file_struct = file_struct;
     file->mime_type = mime_type;
     file->size = temp_size;
     file->source = source;
