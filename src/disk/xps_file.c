@@ -9,7 +9,13 @@ void file_source_handler(void *ptr)
     xps_file_t *file = source->ptr;
 
     /*create buffer and handle any error*/
-    xps_buffer_t *buff = xps_buffer_create(DEFAULT_BUFFER_SIZE, DEFAULT_BUFFER_SIZE, NULL);
+    int pipe_threshold = DEFAULT_BUFFER_SIZE;
+    int size = source->pipe->buff_thresh - source->pipe->buff_list->len;
+    if (pipe_threshold > size)
+    {
+        pipe_threshold = size;
+    }
+    xps_buffer_t *buff = xps_buffer_create(pipe_threshold, pipe_threshold, NULL);
     if (buff == NULL)
     {
         logger(LOG_DEBUG, "file_source_handler()", "xps_buffer_create() failed");
@@ -17,6 +23,7 @@ void file_source_handler(void *ptr)
     }
 
     // Read from file
+
     size_t read_n = fread(buff->data, 1, buff->size, file->file_struct);
     buff->len = read_n;
 
@@ -41,20 +48,6 @@ void file_source_handler(void *ptr)
     }
 
     /*Write to pipe from buff*/
-    int pipe_threshold = DEFAULT_BUFFER_SIZE;
-    int size = source->pipe->buff_thresh - source->pipe->buff_list->len;
-    if (pipe_threshold > size)
-    {
-        pipe_threshold = size;
-    }
-
-    if (buff->len > pipe_threshold)
-    {
-        xps_buffer_destroy(buff);
-        source->ready = false;
-        return;
-    }
-
     if (xps_pipe_source_write(source, buff) != OK)
     {
         logger(LOG_ERROR, "file_source_handler()", "xps_pipe_source_write() failed");
