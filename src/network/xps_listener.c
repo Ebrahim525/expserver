@@ -35,40 +35,16 @@ void listener_connection_handler(void *ptr)
             return;
         }
 
-        xps_pipe_t *pipe;
-
-        if (listener->port == 8001)
-        {
-            xps_connection_t *upstream_connection = xps_upstream_create(listener->core, "127.0.0.1", 3000);
-            upstream_connection->listener = listener;
-            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, upstream_connection->sink);
-            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, upstream_connection->source, client->sink);
-        }
-        else if (listener->port == 8002)
-        {
-            int error = 0;
-            xps_file_t *file = xps_file_create(listener->core, "public/sample.txt", &error);
-            if (file == NULL)
-            {
-                logger(LOG_ERROR, "xps_listener_connection_handler()", "xps_file_create() failed");
-                xps_connection_destroy(client);
-                continue;
-            }
-            xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, file->source, client->sink);
-        }
-        else
-        {
-            pipe = xps_pipe_create(listener->core, DEFAULT_PIPE_BUFF_THRESH, client->source, client->sink);
-            // if (!pipe)
-            // {
-            //     logger(LOG_ERROR, "xps_listener_connection_handler()", "pipe creation failed");
-            //     return;
-            // }
-        }
-
-        // check pipe error
-
         client->listener = listener;
+
+        xps_session_t *session = xps_session_create(listener->core, client);
+
+        if (session == NULL)
+        {
+            logger(LOG_ERROR, "listener_connection_handler()", "xps_session_create() failed");
+            xps_connection_destroy(client);
+            return;
+        }
 
         logger(LOG_INFO, "xps_listener_connection_handler()", "new connection");
     }
