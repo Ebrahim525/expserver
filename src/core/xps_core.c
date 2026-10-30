@@ -37,6 +37,15 @@ void xps_core_destroy(xps_core_t *core)
 {
     assert(core != NULL);
 
+    for (int i = 0; i < core->sessions.length; i++)
+    {
+        if (core->sessions.data[i])
+        {
+            xps_session_destroy(core->sessions.data[i]);
+        }
+    }
+    vec_deinit(&(core->sessions));
+
     for (int i = 0; i < core->connections.length; i++)
     {
         xps_connection_t *connection = core->connections.data[i];
@@ -74,15 +83,6 @@ void xps_core_destroy(xps_core_t *core)
         }
     }
     vec_deinit(&(core->pipes));
-
-    for (int i = 0; i < core->sessions.length; i++)
-    {
-        if (core->sessions.data[i])
-        {
-            xps_session_destroy(core->sessions.data[i]);
-        }
-    }
-    vec_deinit(&(core->sessions));
 
     xps_loop_destroy(core->loop);
     free(core);
