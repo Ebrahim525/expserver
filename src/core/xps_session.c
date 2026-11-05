@@ -73,7 +73,7 @@ void session_process_request(xps_session_t *session)
     if (session->http_req == NULL)
     {
         sprintf(reply, "HTTP/1.1 400 Bad Request\n");
-        xps_buffer_t *buff = xps_buffer_create(strlen(reply), strlen(reply), strdup(reply));
+        xps_buffer_t *buff = xps_buffer_create(strlen(reply) + 1, strlen(reply), strdup(reply));
         set_to_client_buff(session, buff);
         return;
     }
@@ -111,7 +111,7 @@ void session_process_request(xps_session_t *session)
                     "*\nContent-Length: %zu\nContent-Type: %s\n\n",
                     session->file->size, session->file->mime_type);
         }
-        xps_buffer_t *buff = xps_buffer_create(strlen(reply), strlen(reply), strdup(reply));
+        xps_buffer_t *buff = xps_buffer_create(strlen(reply) + 1, strlen(reply), strdup(reply));
         set_to_client_buff(session, buff);
 
         xps_pipe_create(session->core, DEFAULT_PIPE_BUFF_THRESH, session->file->source, session->file_sink);
@@ -167,13 +167,7 @@ void client_sink_handler(void *ptr)
     {
         int error;
         xps_http_req_t *http_req = xps_http_req_create(session->core, buff, &error);
-        if (error != OK)
-        {
-            error = HTTP_BAD_REQUEST;
-            logger(LOG_ERROR, "client_sink_handler()", "failed to parse http request, error code: %d", error);
-            session_process_request(session);
-            return;
-        }
+
         xps_buffer_destroy(buff);
 
         if (error == E_FAIL)
@@ -191,7 +185,7 @@ void client_sink_handler(void *ptr)
 
         session->http_req = http_req;
 
-        logger(LOG_DEBUG, "client_sink_handler()", "parsed http request successfully, processing request");
+        logger(LOG_DEBUG, "client_sink_handler()", "parsed http request successfully");
 
         xps_buffer_t *http_req_buff = xps_http_req_serialize(http_req);
 

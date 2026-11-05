@@ -122,6 +122,11 @@ char *str_from_ptrs(const char *start, const char *end)
 
     size_t len = end - start;
 
+    // if (len == 0)
+    // {
+    //     return NULL;
+    // }
+
     char *str = malloc(sizeof(char) * (len + 1));
     if (str == NULL)
     {
