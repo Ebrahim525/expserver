@@ -86,7 +86,7 @@ xps_file_t *xps_file_create(xps_core_t *core, const char *file_path, int *error)
     if (!resolved_path || !resolved_public)
     {
         logger(LOG_ERROR, "xps_file_create()", "realpath() failed");
-
+        *error = E_PERMISSION;
         free(resolved_path);
         free(resolved_public);
 

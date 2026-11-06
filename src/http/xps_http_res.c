@@ -59,7 +59,7 @@ xps_buffer_t *xps_http_res_serialize(xps_http_res_t *http_res)
     }
 
     // Calculate length for final buffer
-    size_t final_len = strlen(http_res->response_line) + headers_str->len + (http_res->body ? http_res->body->len : 0);
+    size_t final_len = strlen(http_res->response_line) + headers_str->len + 2 + (http_res->body ? http_res->body->len : 0);
 
     // Create instance for final buffer
     xps_buffer_t *buff = xps_buffer_create(final_len, final_len, NULL);
@@ -78,6 +78,11 @@ xps_buffer_t *xps_http_res_serialize(xps_http_res_t *http_res)
     // copy headers
     memcpy(buff->pos, headers_str->data, headers_str->len);
     buff->pos += headers_str->len;
+
+    *buff->pos = '\r';
+    buff->pos += 1;
+    *buff->pos = '\n';
+    buff->pos += 1;
 
     // copy response body
     if (http_res->body)
