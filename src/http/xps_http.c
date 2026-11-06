@@ -560,6 +560,40 @@ const char *xps_http_get_header(vec_void_t *headers, const char *key)
     return NULL;
 }
 
+int xps_http_set_header(vec_void_t *headers, const char *key, const char *val)
+{
+    assert(headers != NULL);
+    assert(key != NULL);
+    assert(val != NULL);
+
+    xps_keyval_t *header = malloc(sizeof(xps_keyval_t));
+    if (header == NULL)
+    {
+        logger(LOG_ERROR, "xps_http_set_header()", "malloc() failed for 'header'");
+        return E_FAIL;
+    }
+
+    // allocate memory for header->key and header->val
+    header->key = malloc(strlen(key) + 1);
+    header->val = malloc(strlen(val) + 1);
+    if (header->key == NULL || header->val == NULL)
+    {
+        free(header->key);
+        free(header->val);
+        free(header);
+        logger(LOG_ERROR, "xps_http_set_header()", "malloc() failed for 'header->key' or 'header->val'");
+        return E_FAIL;
+    }
+
+    stpcpy(header->key, key);
+    strcpy(header->val, val);
+
+    // add the header to header list
+    vec_push(headers, header);
+
+    return OK;
+}
+
 xps_buffer_t *xps_http_serialize_headers(vec_void_t *headers)
 {
     assert(headers != NULL);
@@ -606,4 +640,21 @@ xps_buffer_t *xps_http_serialize_headers(vec_void_t *headers)
         buff->len = strlen(buff->data);
     }
     return buff;
+}
+
+const char *xps_http_status_text(u_int code)
+{
+    switch (code)
+    {
+    case HTTP_OK:
+        return "OK";
+    case HTTP_BAD_REQUEST:
+        return "Bad Request";
+    case HTTP_NOT_FOUND:
+        return "Not Found";
+    case HTTP_INTERNAL_SERVER_ERROR:
+        return "Internal Server Error";
+    default:
+        return "Unknown Status";
+    }
 }

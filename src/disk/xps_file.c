@@ -135,9 +135,11 @@ xps_file_t *xps_file_create(xps_core_t *core, const char *file_path, int *error)
         switch (errno)
         {
         case EACCES:
+            *error = E_PERMISSION;
             logger(LOG_ERROR, "xps_file_create()", "Permission denied");
             break;
         case ENOENT:
+            *error = E_NOTFOUND;
             logger(LOG_ERROR, "xps_file_create()", "File does not exist");
             break;
         default:

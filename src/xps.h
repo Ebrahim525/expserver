@@ -15,9 +15,13 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 // 3rd party libraries
 #include "lib/vec/vec.h" // https://github.com/rxi/vec
+
+// Server Name
+#define SERVER_NAME "eXpServer"
 
 // Constants
 #define DEFAULT_BACKLOG 64
@@ -70,6 +74,7 @@ typedef struct xps_file_s xps_file_t;
 typedef struct xps_keyval_s xps_keyval_t;
 typedef struct xps_session_s xps_session_t;
 typedef struct xps_http_req_s xps_http_req_t;
+typedef struct xps_http_res_s xps_http_res_t;
 
 // Function typedefs
 typedef void (*xps_handler_t)(void *ptr);
@@ -89,5 +94,6 @@ typedef void (*xps_handler_t)(void *ptr);
 #include "disk/xps_file.h"
 #include "http/xps_http.h"
 #include "http/xps_http_req.h"
+#include "http/xps_http_res.h"
 
 #endif
