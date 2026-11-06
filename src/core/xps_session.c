@@ -90,18 +90,21 @@ void session_process_request(xps_session_t *session)
             sprintf(reply, "HTTP/1.1 403 Forbidden\r\nServer: eXpServer\r\n\r\n");
             xps_buffer_t *buff = xps_buffer_create(strlen(reply) + 1, strlen(reply), strdup(reply));
             set_to_client_buff(session, buff);
+            return;
         }
         else if (error == E_NOTFOUND)
         {
             sprintf(reply, "HTTP/1.1 404 Not Found\r\nServer: eXpServer\r\n\r\n");
             xps_buffer_t *buff = xps_buffer_create(strlen(reply) + 1, strlen(reply), strdup(reply));
             set_to_client_buff(session, buff);
+            return;
         }
         else if (error != OK)
         {
             sprintf(reply, "HTTP/1.1 500 Internal Server Error\r\nServer: eXpServer\r\n\r\n");
             xps_buffer_t *buff = xps_buffer_create(strlen(reply) + 1, strlen(reply), strdup(reply));
             set_to_client_buff(session, buff);
+            return;
         }
 
         if (session->file->mime_type)
