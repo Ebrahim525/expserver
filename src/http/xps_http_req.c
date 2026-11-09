@@ -62,7 +62,7 @@ int http_process_headers(xps_http_req_t *http_req, xps_buffer_t *buff)
         error = xps_http_parse_header_line(http_req, buff);
         if (error == E_FAIL || error == E_AGAIN)
         {
-            break;
+            return error;
         }
         if (error == OK || error == E_NEXT)
         {
@@ -157,7 +157,7 @@ xps_http_req_t *xps_http_req_create(xps_core_t *core, xps_buffer_t *buff, int *e
 
     // Process request line and handle possible errors
     int error_code = http_process_request_line(http_req, buff);
-    if (error_code != OK)
+    if (error_code == E_FAIL)
     {
         logger(LOG_ERROR, "xps_http_req_create()", "failed to process request line");
 
@@ -166,23 +166,37 @@ xps_http_req_t *xps_http_req_create(xps_core_t *core, xps_buffer_t *buff, int *e
 
         return NULL;
     }
+    if (error_code == E_AGAIN)
+    {
+        logger(LOG_DEBUG, "xps_http_req_create()", "http request parsing not complete, waiting for more data");
+
+        *error = E_AGAIN;
+        return NULL;
+    }
     logger(LOG_DEBUG, "xps_http_req_create()", "processed request line successfully");
 
     // Process headers and handle possible errors
     error_code = http_process_headers(http_req, buff);
-    if (error_code != OK)
+    if (error_code == E_FAIL)
     {
         logger(LOG_ERROR, "xps_http_req_create()", "failed to process headers");
 
-        *error = E_FAIL;
         free(http_req);
+        *error = E_FAIL;
 
+        return NULL;
+    }
+    if (error_code == E_AGAIN)
+    {
+        logger(LOG_DEBUG, "xps_http_req_create()", "http request parsing not complete, waiting for more data");
+
+        *error = E_AGAIN;
         return NULL;
     }
     logger(LOG_DEBUG, "xps_http_req_create()", "processed headers successfully");
 
     // Header length
-    http_req->header_len = (size_t)(buff->pos - buff->data);
+    http_req->header_len = (size_t)(buff->len - (http_req->request_line_end - buff->data));
 
     // Body length is retrieved from header Content-Length
     http_req->body_len = 0;

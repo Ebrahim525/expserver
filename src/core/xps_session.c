@@ -281,6 +281,8 @@ void client_sink_handler(void *ptr)
         if (error == E_FAIL)
         {
             logger(LOG_ERROR, "client_sink_handler()", "failed to parse http request, error code: %d", error);
+
+            xps_http_req_destroy(session->core, http_req);
             session_process_request(session);
             return;
         }
@@ -288,6 +290,8 @@ void client_sink_handler(void *ptr)
         if (error == E_AGAIN)
         {
             logger(LOG_DEBUG, "client_sink_handler()", "http request parsing not complete, waiting for more data");
+
+            xps_http_req_destroy(session->core, http_req);
             return;
         }
 
