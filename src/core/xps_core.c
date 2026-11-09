@@ -1,6 +1,6 @@
 #include "../xps.h"
 
-xps_core_t *xps_core_create()
+xps_core_t *xps_core_create(xps_config_t *config)
 {
     xps_core_t *core = malloc(sizeof(xps_core_t));
     if (core == NULL)
@@ -18,6 +18,7 @@ xps_core_t *xps_core_create()
     }
 
     core->loop = loop;
+    core->config = config;
     vec_init(&(core->listeners));
     vec_init(&(core->connections));
     vec_init(&(core->pipes));
@@ -95,16 +96,6 @@ void xps_core_start(xps_core_t *core)
     assert(core != NULL);
 
     logger(LOG_DEBUG, "xps_start()", "starting core");
-
-    for (int port = 8001; port <= 8004; port++)
-    {
-        if (xps_listener_create(core, "0.0.0.0", port) == NULL)
-        {
-            logger(LOG_ERROR, "main()", "Failed to start on port %u", port);
-            continue;
-        }
-        logger(LOG_INFO, "main()", "Server listening on port %u", port);
-    }
 
     xps_loop_run(core->loop);
 }

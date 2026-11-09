@@ -247,7 +247,7 @@ int xps_http_parse_request_line(xps_http_req_t *http_req, xps_buffer_t *buff)
             }
             else if (ch == '?' || ch == '&' || ch == '#' || ch == '=')
             {
-                http_req->path_end = p_ch;
+                http_req->pathname_end = p_ch;
 
                 parser_state = RL_PATHNAME;
             }
@@ -263,7 +263,7 @@ int xps_http_parse_request_line(xps_http_req_t *http_req, xps_buffer_t *buff)
             if (ch == ' ')
             {
                 http_req->uri_end = p_ch;
-                http_req->pathname_end = p_ch;
+                http_req->path_end = p_ch;
 
                 parser_state = RL_VERSION_START;
             }
