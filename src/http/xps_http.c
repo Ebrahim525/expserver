@@ -421,7 +421,8 @@ int xps_http_parse_header_line(xps_http_req_t *http_req, xps_buffer_t *buff)
     u_char *p_ch = buff->pos;
     xps_http_parser_state_t parser_state = http_req->parser_state;
 
-    int len = buff->len;
+    // int len = buff->len;
+    int len = buff->len - (buff->pos - buff->data);
 
     for (int i = 0; i < len; i++, p_ch++)
     {
