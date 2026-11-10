@@ -28,6 +28,13 @@ void connection_source_handler(void *ptr)
     {
         pipe_threshold = size;
     }
+
+    if (pipe_threshold <= 0)
+    {
+        xps_buffer_destroy(buff);
+        return;
+    }
+
     int read_n = recv(connection->sock_fd, buff->data, pipe_threshold, 0);
     buff->len = read_n;
 
