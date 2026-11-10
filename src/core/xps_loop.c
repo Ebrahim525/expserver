@@ -154,14 +154,16 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             continue;
         }
 
-        // Write event
-        if (curr_epoll_event.events & EPOLLOUT)
+        // Close event
+        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
         {
-            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / write");
-            if (curr_event->write_cb != NULL)
+            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
+            if (curr_event->close_cb != NULL)
             {
-                curr_event->write_cb(curr_event->ptr);
+                curr_event->close_cb(curr_event->ptr);
             }
+
+            return;
         }
 
         // Read event
@@ -174,15 +176,13 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             }
         }
 
-        // Check if exists
-
-        // Close event
-        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
+        // Write event
+        if (curr_epoll_event.events & EPOLLOUT)
         {
-            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
-            if (curr_event->close_cb != NULL)
+            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / write");
+            if (curr_event->write_cb != NULL)
             {
-                curr_event->close_cb(curr_event->ptr);
+                curr_event->write_cb(curr_event->ptr);
             }
         }
     }
