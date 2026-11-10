@@ -248,7 +248,7 @@ void client_sink_handler(void *ptr)
         xps_buffer_t *http_req_buff = xps_http_req_serialize(http_req);
 
         set_from_client_buff(session, http_req_buff);
-        size_t to_clear = sink->pipe->buff_list->len;
+        size_t to_clear = strlen(http_req->request_line);
         xps_pipe_sink_clear(sink, to_clear);
 
         session_process_request(session);

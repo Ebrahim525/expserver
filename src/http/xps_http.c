@@ -619,9 +619,9 @@ xps_buffer_t *xps_http_serialize_headers(vec_void_t *headers)
     {
         xps_keyval_t *header = (headers->data[i]);
 
-        size_t header_str_len = strlen(header->key) + strlen(header->val) + 5; // ": " and "\n" and null terminator and space
+        size_t header_str_len = strlen(header->key) + strlen(header->val) + 5;
         char header_str[header_str_len];
-        sprintf(header_str, "%s: %s\n", header->key, header->val);
+        sprintf(header_str, "%s: %s\r\n", header->key, header->val);
 
         if ((buff->size - buff->len) < header_str_len)
         {
