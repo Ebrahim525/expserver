@@ -216,6 +216,7 @@ void xps_connection_destroy(xps_connection_t *connection)
         if (curr == connection)
         {
             connection->core->connections.data[i] = NULL;
+            connection->core->n_null_connections += 1;
             break;
         }
     }
