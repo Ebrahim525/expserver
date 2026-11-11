@@ -108,26 +108,31 @@ void filter_nulls(xps_core_t *core)
     if (core->n_null_connections > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->connections));
+        core->n_null_connections = 0;
     }
 
     if (core->n_null_listeners > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->listeners));
+        core->n_null_listeners = 0;
     }
 
     if (core->n_null_pipes > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->pipes));
+        core->n_null_pipes = 0;
     }
 
     if (core->n_null_sessions > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->sessions));
+        core->n_null_sessions = 0;
     }
 
     if (core->loop->n_null_events > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->loop->events));
+        core->loop->n_null_events = 0;
     }
 }
 
