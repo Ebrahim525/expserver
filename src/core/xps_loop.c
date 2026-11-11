@@ -108,21 +108,31 @@ void filter_nulls(xps_core_t *core)
     if (core->n_null_connections > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->connections));
+        core->n_null_connections = 0;
     }
 
     if (core->n_null_listeners > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->listeners));
+        core->n_null_listeners = 0;
     }
 
     if (core->n_null_pipes > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->pipes));
+        core->n_null_pipes = 0;
     }
 
     if (core->n_null_sessions > DEFAULT_NULLS_THRESH)
     {
         vec_filter_null(&(core->sessions));
+        core->n_null_sessions = 0;
+    }
+
+    if (core->loop->n_null_events > DEFAULT_NULLS_THRESH)
+    {
+        vec_filter_null(&(core->loop->events));
+        core->loop->n_null_events = 0;
     }
 }
 
@@ -154,14 +164,16 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             continue;
         }
 
-        // Write event
-        if (curr_epoll_event.events & EPOLLOUT)
+        // Close event
+        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
         {
-            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / write");
-            if (curr_event->write_cb != NULL)
+            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
+            if (curr_event->close_cb != NULL)
             {
-                curr_event->write_cb(curr_event->ptr);
+                curr_event->close_cb(curr_event->ptr);
             }
+
+            return;
         }
 
         // Read event
@@ -174,15 +186,29 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             }
         }
 
-        // Check if exists
-
-        // Close event
-        if (curr_epoll_event.events & (EPOLLERR | EPOLLHUP))
+        curr_event_idx = -1;
+        for (int i = 0; i < loop->events.length; i++)
         {
-            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / close");
-            if (curr_event->close_cb != NULL)
+            if (loop->events.data[i] == curr_event)
             {
-                curr_event->close_cb(curr_event->ptr);
+                curr_event_idx = i;
+                break;
+            }
+        }
+        // 🟡 Above can be optimized using an RB tree
+        if (curr_event_idx == -1)
+        {
+            logger(LOG_DEBUG, "handle_epoll_events()", "event not found. skipping");
+            continue;
+        }
+
+        // Write event
+        if (curr_epoll_event.events & EPOLLOUT)
+        {
+            logger(LOG_DEBUG, "handle_epoll_events()", "EVENT / write");
+            if (curr_event->write_cb != NULL)
+            {
+                curr_event->write_cb(curr_event->ptr);
             }
         }
     }

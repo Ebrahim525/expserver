@@ -138,6 +138,7 @@ void xps_listener_destroy(xps_listener_t *listener)
         if (curr == listener)
         {
             listener->core->listeners.data[i] = NULL;
+            listener->core->n_null_listeners += 1;
             break;
         }
     }
