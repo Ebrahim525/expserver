@@ -181,6 +181,22 @@ void handle_epoll_events(xps_loop_t *loop, int n_events)
             }
         }
 
+        curr_event_idx = -1;
+        for (int i = 0; i < loop->events.length; i++)
+        {
+            if (loop->events.data[i] == curr_event)
+            {
+                curr_event_idx = i;
+                break;
+            }
+        }
+        // 🟡 Above can be optimized using an RB tree
+        if (curr_event_idx == -1)
+        {
+            logger(LOG_DEBUG, "handle_epoll_events()", "event not found. skipping");
+            continue;
+        }
+
         // Write event
         if (curr_epoll_event.events & EPOLLOUT)
         {
