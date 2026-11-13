@@ -69,6 +69,6 @@ xps_config_t *xps_config_create(const char *config_path);
 void xps_config_destroy(xps_config_t *config);
 xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *http_req,
                                        xps_connection_t *client, int *error);
-void xps_config_lookup_destroy(xps_config_lookup_t *config_lookup, xps_core_t *core);
+void xps_config_lookup_destroy(xps_config_lookup_t *config_lookup);
 
 #endif

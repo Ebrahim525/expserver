@@ -11,6 +11,9 @@ xps_config_t *xps_config_create(const char *config_path)
 
         return NULL;
     }
+    memset(config, 0, sizeof(xps_config_t));
+    vec_init(&(config->servers));
+    vec_init(&(config->_all_listeners));
 
     JSON_Value *config_json = json_parse_file(config_path);
     if (config_json == NULL)
@@ -30,9 +33,8 @@ xps_config_t *xps_config_create(const char *config_path)
     }
 
     config->config_path = config_path;
-    config->server_name = json_object_get_string(root_object, "server_name");
-    vec_init(&(config->servers));
-    vec_init(&(config->_all_listeners));
+    const char *server_name = json_object_get_string(root_object, "server_name");
+    config->server_name = server_name ? strdup(server_name) : NULL;
 
     JSON_Array *servers = json_object_get_array(root_object, "servers");
     if (servers == NULL)
@@ -55,6 +57,7 @@ xps_config_t *xps_config_create(const char *config_path)
             logger(LOG_ERROR, "xps_config_create()", "malloc failed allocating server_config");
             goto error;
         }
+        memset(server_config, 0, sizeof(xps_config_server_t));
 
         vec_init(&(server_config->listeners));
         vec_init(&(server_config->hostnames));
@@ -77,14 +80,22 @@ xps_config_t *xps_config_create(const char *config_path)
                 goto error;
             }
 
+            const char *host = json_object_get_string(listener, "host");
+            if (host == NULL)
+            {
+                logger(LOG_ERROR, "xps_config_create()", "listener missing host");
+                goto error;
+            }
+
             xps_config_listener_t *listener_config = malloc(sizeof(xps_config_listener_t));
             if (listener_config == NULL)
             {
                 logger(LOG_ERROR, "xps_config_create()", "malloc failed allocating listener_config");
                 goto error;
             }
+            memset(listener_config, 0, sizeof(xps_config_listener_t));
 
-            listener_config->host = json_object_get_string(listener, "host");
+            listener_config->host = strdup(host);
             listener_config->port = json_object_get_number(listener, "port");
 
             vec_push(&(server_config->listeners), listener_config);
@@ -106,12 +117,27 @@ xps_config_t *xps_config_create(const char *config_path)
                 goto error;
             }
 
+            const char *req_path = json_object_get_string(route, "req_path");
+            if (req_path == NULL)
+            {
+                logger(LOG_ERROR, "xps_config_create()", "route missing req_path");
+                goto error;
+            }
+
+            const char *type = json_object_get_string(route, "type");
+            if (type == NULL)
+            {
+                logger(LOG_ERROR, "xps_config_create()", "route missing type");
+                goto error;
+            }
+
             xps_config_route_t *route_config = malloc(sizeof(xps_config_route_t));
             if (route_config == NULL)
             {
                 logger(LOG_ERROR, "xps_config_create()", "malloc failed allocating route_config");
                 goto error;
             }
+            memset(route_config, 0, sizeof(xps_config_route_t));
             vec_init(&(route_config->index));
             vec_init(&(route_config->upstreams));
 
@@ -122,14 +148,14 @@ xps_config_t *xps_config_create(const char *config_path)
             {
                 for (size_t k = 0; k < json_array_get_count(indexes); k++)
                 {
-                    const char *index = json_array_get_string(indexes, k);
-
-                    if (index == NULL)
+                    const char *index_str = json_array_get_string(indexes, k);
+                    if (index_str == NULL)
                     {
                         logger(LOG_ERROR, "xps_config_create()", "Invalid index entry");
                         goto error;
                     }
 
+                    char *index = strdup(index_str);
                     vec_push(&(route_config->index), index);
                 }
             }
@@ -139,34 +165,47 @@ xps_config_t *xps_config_create(const char *config_path)
             {
                 for (size_t k = 0; k < json_array_get_count(upstreams); k++)
                 {
-                    const char *upstream = json_array_get_string(upstreams, k);
-
-                    if (upstream == NULL)
+                    const char *upstream_str = json_array_get_string(upstreams, k);
+                    if (upstream_str == NULL)
                     {
                         logger(LOG_ERROR, "xps_config_create()", "Invalid upstream entry");
                         goto error;
                     }
 
+                    char *upstream = strdup(upstream_str);
                     vec_push(&(route_config->upstreams), upstream);
                 }
             }
 
-            route_config->req_path = json_object_get_string(route, "req_path");
-            route_config->type = json_object_get_string(route, "type");
-            route_config->dir_path = json_object_get_string(route, "dir_path");
+            route_config->req_path = strdup(req_path);
+            route_config->type = strdup(type);
+
+            const char *dir_path = json_object_get_string(route, "dir_path");
+            route_config->dir_path = dir_path ? strdup(dir_path) : NULL;
+
             route_config->http_status_code = json_object_get_number(route, "http_status_code");
-            route_config->redirect_url = json_object_get_string(route, "redirect_url");
+
+            const char *redirect_url = json_object_get_string(route, "redirect_url");
+            route_config->redirect_url = redirect_url ? strdup(redirect_url) : NULL;
         }
 
         JSON_Array *hostnames = json_object_get_array(server, "hostname");
+        if (hostnames == NULL)
+        {
+            hostnames = json_object_get_array(server, "hostnames");
+        }
         if (hostnames)
         {
             for (int j = 0; j < json_array_get_count(hostnames); j++)
             {
-                const char *hostname = json_array_get_string(hostnames, j);
-                if (hostname)
+                const char *hostname_str = json_array_get_string(hostnames, j);
+                if (hostname_str)
                 {
-                    vec_push(&(server_config->hostnames), hostname);
+                    char *hostname = strdup(hostname_str);
+                    if (hostname)
+                    {
+                        vec_push(&(server_config->hostnames), hostname);
+                    }
                 }
             }
         }
@@ -181,27 +220,96 @@ error:
 
 void xps_config_destroy(xps_config_t *config)
 {
+    if (config == NULL)
+    {
+        return;
+    }
+
     for (int i = 0; i < config->servers.length; i++)
     {
         xps_config_server_t *server = config->servers.data[i];
-
-        for (int j = 0; j < server->routes.length; i++)
+        if (server == NULL)
         {
-            xps_config_route_t *route = server->routes.data[i];
+            continue;
+        }
 
+        for (int j = 0; j < server->routes.length; j++)
+        {
+            xps_config_route_t *route = server->routes.data[j];
+            if (route == NULL)
+            {
+                continue;
+            }
+
+            for (int k = 0; k < route->index.length; k++)
+            {
+                free(route->index.data[k]);
+            }
             vec_deinit(&(route->index));
+
+            for (int k = 0; k < route->upstreams.length; k++)
+            {
+                free(route->upstreams.data[k]);
+            }
             vec_deinit(&(route->upstreams));
+
+            if (route->req_path)
+            {
+                free((char *)route->req_path);
+            }
+            if (route->type)
+            {
+                free((char *)route->type);
+            }
+            if (route->dir_path)
+            {
+                free((char *)route->dir_path);
+            }
+            if (route->redirect_url)
+            {
+                free((char *)route->redirect_url);
+            }
+
+            free(route);
+        }
+
+        for (int j = 0; j < server->listeners.length; j++)
+        {
+            xps_config_listener_t *listener = server->listeners.data[j];
+            if (listener != NULL)
+            {
+                if (listener->host)
+                {
+                    free((char *)listener->host);
+                }
+                free(listener);
+            }
+        }
+
+        for (int j = 0; j < server->hostnames.length; j++)
+        {
+            free(server->hostnames.data[j]);
         }
 
         vec_deinit(&(server->routes));
         vec_deinit(&(server->listeners));
         vec_deinit(&(server->hostnames));
+
+        free(server);
     }
 
     vec_deinit(&(config->servers));
     vec_deinit(&(config->_all_listeners));
 
-    json_value_free(config->_config_json);
+    if (config->server_name)
+    {
+        free((char *)config->server_name);
+    }
+
+    if (config->_config_json)
+    {
+        json_value_free(config->_config_json);
+    }
 
     free(config);
 }
@@ -251,7 +359,7 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
         {
             const char *hostname = server->hostnames.data[j];
 
-            if (strcmp(host, hostname) == 0)
+            if (host != NULL && strcmp(host, hostname) == 0)
             {
                 has_matching_hostname = true;
                 break;
@@ -321,7 +429,7 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
     if (!strcmp(route->type, "file_serve"))
     {
         lookup->type = REQ_FILE_SERVE;
-        lookup->dir_path = route->dir_path;
+        lookup->dir_path = strdup(route->dir_path);
     }
     else if (!strcmp(route->type, "reverse_proxy"))
     {
@@ -343,9 +451,9 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
     // File serve
     if (lookup->type == REQ_FILE_SERVE)
     {
-        size_t joined_path_size = strlen(lookup->dir_path) + strlen(pathname) + 4;
+        size_t joined_path_size = strlen(lookup->dir_path) + strlen(pathname) + 1;
         char joined_path[joined_path_size];
-        snprintf(joined_path, joined_path_size, "%s/%s", lookup->dir_path, pathname);
+        snprintf(joined_path, joined_path_size, "%s%s", lookup->dir_path, pathname);
 
         char *resource_path = realpath(joined_path, NULL);
         if (!resource_path)
@@ -385,18 +493,40 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
         else
         {
             free(resource_path);
+            *error = HTTP_NOT_FOUND;
+            xps_config_lookup_destroy(lookup);
+            return NULL;
         }
 
         *error = OK;
         return lookup;
     }
+    else if (lookup->type == REQ_REVERSE_PROXY || lookup->type == REQ_REDIRECT)
+    {
+        *error = OK;
+        return lookup;
+    }
 
+    *error = E_FAIL;
+    xps_config_lookup_destroy(lookup);
     return NULL;
 }
 
 void xps_config_lookup_destroy(xps_config_lookup_t *config_lookup)
 {
-    free(config_lookup->file_path);
+    if (config_lookup == NULL)
+    {
+        return;
+    }
+
+    if (config_lookup->file_path)
+    {
+        free(config_lookup->file_path);
+    }
+    if (config_lookup->dir_path)
+    {
+        free(config_lookup->dir_path);
+    }
     vec_deinit(&(config_lookup->ip_whitelist));
     vec_deinit(&(config_lookup->ip_blacklist));
 

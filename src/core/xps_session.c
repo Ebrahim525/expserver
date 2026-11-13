@@ -83,10 +83,13 @@ void session_process_request(xps_session_t *session)
 {
     assert(session != NULL);
 
-    xps_config_lookup_t *lookup = session->lookup;
+    int lookup_error;
+    xps_config_lookup_t *lookup = xps_config_lookup(session->core->config, session->http_req, session->client, &lookup_error);
+    session->lookup = lookup;
+
     xps_http_res_t *http_res;
 
-    if (!(session->http_req) || session->http_req->path[0] == '\0')
+    if (!(session->http_req) || session->http_req->path[0] == '\0' || lookup_error != OK)
     {
         set_http_res(session, HTTP_BAD_REQUEST);
     }
@@ -176,7 +179,8 @@ void session_process_request(xps_session_t *session)
             {
                 logger(LOG_ERROR, "session_process_request()", "Failed to create file pipe");
 
-                xps_session_destroy(session);
+                set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
+                session_check_destroy(session);
                 return;
             }
         }
@@ -193,8 +197,17 @@ void session_process_request(xps_session_t *session)
             logger(LOG_ERROR, "session_process_request()", "Failed to create upstream connection");
 
             set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
-            xps_session_destroy(session);
+            session_check_destroy(session);
             return;
+        }
+
+        if (!xps_pipe_create(session->core, DEFAULT_PIPE_BUFF_THRESH, session->upstream_source, upstream->sink) || !xps_pipe_create(session->core, DEFAULT_PIPE_BUFF_THRESH, upstream->source, session->upstream_sink))
+        {
+            logger(LOG_ERROR, "xps_session_create()", "failed to create upstream pipes");
+
+            set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
+
+            session_check_destroy(session);
         }
     }
     else if (lookup->type == REQ_REDIRECT)
