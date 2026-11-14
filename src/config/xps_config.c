@@ -429,7 +429,7 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
     if (!strcmp(route->type, "file_serve"))
     {
         lookup->type = REQ_FILE_SERVE;
-        lookup->dir_path = strdup(route->dir_path);
+        // lookup->dir_path = strdup(route->dir_path);
     }
     else if (!strcmp(route->type, "reverse_proxy"))
     {
@@ -451,9 +451,9 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
     // File serve
     if (lookup->type == REQ_FILE_SERVE)
     {
-        size_t joined_path_size = strlen(lookup->dir_path) + strlen(pathname) + 1;
+        size_t joined_path_size = strlen(route->dir_path) + strlen(pathname) + 1;
         char joined_path[joined_path_size];
-        snprintf(joined_path, joined_path_size, "%s%s", lookup->dir_path, pathname);
+        snprintf(joined_path, joined_path_size, "%s%s", route->dir_path, pathname);
 
         char *resource_path = realpath(joined_path, NULL);
         if (!resource_path)
@@ -482,12 +482,9 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
                 break;
             }
 
-            free(resource_path);
-
             if (!index_file_found)
             {
-                xps_config_lookup_destroy(lookup);
-                return NULL;
+                lookup->dir_path = resource_path;
             }
         }
         else
