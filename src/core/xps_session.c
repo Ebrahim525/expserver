@@ -95,12 +95,8 @@ void session_process_request(xps_session_t *session)
     }
     else if (lookup->type == REQ_FILE_SERVE)
     {
-        char file_path[DEFAULT_BUFFER_SIZE];
-        strcpy(file_path, "public");
-        strcat(file_path, session->http_req->path);
-
         int error;
-        session->file = xps_file_create(session->core, file_path, &error);
+        session->file = xps_file_create(session->core, lookup->file_path, &error);
 
         if (error == E_PERMISSION)
         {

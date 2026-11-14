@@ -13,6 +13,7 @@ xps_keyval_t mime_types[] = {
     {".txt", "text/plain"},
     {".png", "image/png"},
     {".png", "image/x-png"},
+    {".html", "text/html"},
 };
 int n_mimes = sizeof(mime_types) / sizeof(mime_types[0]);
 
