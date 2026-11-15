@@ -87,6 +87,42 @@ void session_process_request(xps_session_t *session)
     xps_config_lookup_t *lookup = xps_config_lookup(session->core->config, session->http_req, session->client, &lookup_error);
     session->lookup = lookup;
 
+    // IP filtering
+    if (lookup->ip_whitelist.data != NULL)
+    {
+        int i = 0;
+        for (i; i < lookup->ip_whitelist.length; i++)
+        {
+            if (strcmp(session->client->remote_ip, (char *)lookup->ip_whitelist.data[i]) == 0)
+            {
+                break;
+            }
+        }
+
+        if (i == lookup->ip_whitelist.length)
+        {
+            set_http_res(session, HTTP_FORBIDDEN);
+            return;
+        }
+    }
+    else if (lookup->ip_blacklist.data != NULL)
+    {
+        int i = 0;
+        for (i; i < lookup->ip_blacklist.length; i++)
+        {
+            if (strcmp(session->client->remote_ip, (char *)lookup->ip_blacklist.data[i]) == 0)
+            {
+                break;
+            }
+        }
+
+        if (i != lookup->ip_blacklist.length)
+        {
+            set_http_res(session, HTTP_FORBIDDEN);
+            return;
+        }
+    }
+
     xps_http_res_t *http_res;
 
     if (!(session->http_req) || session->http_req->path[0] == '\0' || lookup_error != OK)

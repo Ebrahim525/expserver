@@ -32,6 +32,8 @@ struct xps_config_route_s
     const char *dir_path;
     vec_void_t index;
     vec_void_t upstreams;
+    vec_void_t ip_whitelist;
+    vec_void_t ip_blacklist;
     u_int http_status_code;
     const char *redirect_url;
 };

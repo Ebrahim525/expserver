@@ -1,5 +1,73 @@
 #include "../xps.h"
 
+void parse_route(JSON_Object *route_object, xps_config_route_t *route)
+{
+    assert(route_object != NULL);
+    assert(route != NULL);
+
+    JSON_Array *ip_whitelist = json_object_get_array(route_object, "ip_whitelist");
+    JSON_Array *ip_blacklist = json_object_get_array(route_object, "ip_blacklist");
+
+    if (ip_whitelist && !ip_blacklist)
+    {
+        vec_init(&(route->ip_whitelist));
+
+        for (size_t i = 0; i < json_array_get_count(ip_whitelist); i++)
+        {
+            const char *ip = json_array_get_string(ip_whitelist, i);
+            if (ip != NULL)
+            {
+                vec_push(&(route->ip_whitelist), strdup(ip));
+            }
+        }
+
+        return;
+    }
+    else if (ip_blacklist && !ip_whitelist)
+    {
+        vec_init(&(route->ip_blacklist));
+
+        for (size_t i = 0; i < json_array_get_count(ip_blacklist); i++)
+        {
+            const char *ip = json_array_get_string(ip_blacklist, i);
+            if (ip != NULL)
+            {
+                vec_push(&(route->ip_blacklist), strdup(ip));
+            }
+        }
+
+        return;
+    }
+    else if (ip_whitelist && ip_blacklist)
+    {
+        vec_init(&(route->ip_whitelist));
+
+        for (size_t i = 0; i < json_array_get_count(ip_whitelist); i++)
+        {
+            const char *whitelisted_ip = json_array_get_string(ip_whitelist, i);
+
+            bool is_blacklisted = false;
+            for (size_t j = 0; j < json_array_get_count(ip_blacklist); j++)
+            {
+                const char *blacklisted_ip = json_array_get_string(ip_blacklist, j);
+
+                if (strcmp(whitelisted_ip, blacklisted_ip) == 0)
+                {
+                    is_blacklisted = true;
+                    break;
+                }
+            }
+
+            if (!is_blacklisted)
+            {
+                vec_push(&(route->ip_whitelist), strdup(whitelisted_ip));
+            }
+        }
+
+        return;
+    }
+}
+
 xps_config_t *xps_config_create(const char *config_path)
 {
     assert(config_path != NULL);
@@ -140,6 +208,7 @@ xps_config_t *xps_config_create(const char *config_path)
             memset(route_config, 0, sizeof(xps_config_route_t));
             vec_init(&(route_config->index));
             vec_init(&(route_config->upstreams));
+            parse_route(route, route_config);
 
             vec_push(&(server_config->routes), route_config);
 
@@ -380,17 +449,6 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
 
     xps_config_server_t *server = config->servers.data[target_server_index];
 
-    /*Find matching route block*/
-    // Route matching uses prefix matching with longest-match-first strategy.
-    // This is important because:
-    // - For file serving routes (e.g., "/"), we need to match any path under it
-    //   (e.g., "/index.html", "/css/style.css" should all match route "/")
-    // - For specific routes (e.g., "/api"), we want them to take precedence over "/"
-    //
-    // Example: If we have routes "/" and "/api"
-    // - Request "/index.html" matches "/" only → serves file from "/"
-    // - Request "/api/users" matches both "/" and "/api" → use "/api" (longest match)
-
     xps_config_route_t *route = NULL;
     size_t best_match_len = 0; // Track the longest matching route path
 
@@ -445,8 +503,9 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
         lookup->redirect_url = route->redirect_url;
         lookup->http_status_code = route->http_status_code;
     }
-    vec_init(&(lookup->ip_whitelist));
-    vec_init(&(lookup->ip_blacklist));
+
+    lookup->ip_whitelist = route->ip_whitelist;
+    lookup->ip_blacklist = route->ip_blacklist;
 
     // File serve
     if (lookup->type == REQ_FILE_SERVE)

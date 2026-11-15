@@ -655,6 +655,8 @@ const char *xps_http_status_text(u_int code)
         return "Not Found";
     case HTTP_INTERNAL_SERVER_ERROR:
         return "Internal Server Error";
+    case HTTP_FORBIDDEN:
+        return "Forbidden";
     default:
         return "Unknown Status";
     }
