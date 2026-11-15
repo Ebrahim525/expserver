@@ -5,13 +5,14 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
     assert(route_object != NULL);
     assert(route != NULL);
 
+    vec_init(&(route->ip_whitelist));
+    vec_init(&(route->ip_blacklist));
+
     JSON_Array *ip_whitelist = json_object_get_array(route_object, "ip_whitelist");
     JSON_Array *ip_blacklist = json_object_get_array(route_object, "ip_blacklist");
 
     if (ip_whitelist && !ip_blacklist)
     {
-        vec_init(&(route->ip_whitelist));
-
         for (size_t i = 0; i < json_array_get_count(ip_whitelist); i++)
         {
             const char *ip = json_array_get_string(ip_whitelist, i);
@@ -25,7 +26,6 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
     }
     else if (ip_blacklist && !ip_whitelist)
     {
-        vec_init(&(route->ip_blacklist));
 
         for (size_t i = 0; i < json_array_get_count(ip_blacklist); i++)
         {
@@ -40,18 +40,23 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
     }
     else if (ip_whitelist && ip_blacklist)
     {
-        vec_init(&(route->ip_whitelist));
+        for (size_t i = 0; i < json_array_get_count(ip_blacklist); i++)
+        {
+            const char *ip = json_array_get_string(ip_blacklist, i);
+            if (ip != NULL)
+            {
+                vec_push(&(route->ip_blacklist), strdup(ip));
+            }
+        }
 
         for (size_t i = 0; i < json_array_get_count(ip_whitelist); i++)
         {
             const char *whitelisted_ip = json_array_get_string(ip_whitelist, i);
 
             bool is_blacklisted = false;
-            for (size_t j = 0; j < json_array_get_count(ip_blacklist); j++)
+            for (size_t j = 0; j < route->ip_blacklist.length; j++)
             {
-                const char *blacklisted_ip = json_array_get_string(ip_blacklist, j);
-
-                if (strcmp(whitelisted_ip, blacklisted_ip) == 0)
+                if (strcmp(whitelisted_ip, (char *)route->ip_blacklist.data[j]) == 0)
                 {
                     is_blacklisted = true;
                     break;

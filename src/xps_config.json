@@ -8,7 +8,8 @@
 					"req_path": "/",
 					"type": "file_serve",
 					"dir_path": "public",
-					"index": ["index.html"]
+					"ip_whitelist": ["127.0.0.1"],
+					"ip_blacklist": ["127.0.0.2"]
 				},
 				{
 					"req_path": "/redirect",

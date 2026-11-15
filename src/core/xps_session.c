@@ -88,38 +88,40 @@ void session_process_request(xps_session_t *session)
     session->lookup = lookup;
 
     // IP filtering
-    if (lookup->ip_whitelist.data != NULL)
+    if (lookup->ip_whitelist.length > 0)
     {
-        int i = 0;
-        for (i; i < lookup->ip_whitelist.length; i++)
+        const char *client_ip = session->client->remote_ip;
+        bool is_allowed = false;
+        for (size_t i = 0; i < lookup->ip_whitelist.length; i++)
         {
-            if (strcmp(session->client->remote_ip, (char *)lookup->ip_whitelist.data[i]) == 0)
+            const char *ip_w = lookup->ip_whitelist.data[i];
+            if (strcmp(client_ip, ip_w) == 0)
             {
+                is_allowed = true;
                 break;
             }
         }
-
-        if (i == lookup->ip_whitelist.length)
+        if (!is_allowed)
         {
+            logger(LOG_DEBUG, "session_process_request()", "client ip %s is not whitelisted", client_ip);
             set_http_res(session, HTTP_FORBIDDEN);
             return;
         }
     }
-    else if (lookup->ip_blacklist.data != NULL)
-    {
-        int i = 0;
-        for (i; i < lookup->ip_blacklist.length; i++)
-        {
-            if (strcmp(session->client->remote_ip, (char *)lookup->ip_blacklist.data[i]) == 0)
-            {
-                break;
-            }
-        }
 
-        if (i != lookup->ip_blacklist.length)
+    // check in blacklist
+    if (lookup->ip_blacklist.length > 0)
+    {
+        const char *client_ip = session->client->remote_ip;
+        for (size_t i = 0; i < lookup->ip_blacklist.length; i++)
         {
-            set_http_res(session, HTTP_FORBIDDEN);
-            return;
+            const char *ip_b = lookup->ip_blacklist.data[i];
+            if (strcmp(client_ip, ip_b) == 0)
+            {
+                logger(LOG_DEBUG, "session_process_request()", "client ip %s is blacklisted", client_ip);
+                set_http_res(session, HTTP_FORBIDDEN);
+                return;
+            }
         }
     }
 
