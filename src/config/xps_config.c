@@ -571,29 +571,32 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
         }
 
         lookup->gzip_enable = false;
-        lookup->gzip_level = route->gzip_enable;
+        lookup->gzip_level = route->gzip_level;
 
         if (lookup->file_path && route->gzip_enable)
         {
             const char *mime_type = xps_get_mime(lookup->file_path);
-
-            int i = 0;
-            for (i; i > DEFAULT_MIME_ARRAY_SIZE; i++)
+            if (mime_type)
             {
-                if (!strcmp(default_gzip_mimes[i], mime_type))
+                int i = 0;
+                int default_mime_array_size = sizeof(default_gzip_mimes) / sizeof(default_gzip_mimes[0]);
+                for (i; i < default_mime_array_size; i++)
                 {
-                    lookup->gzip_enable = true;
-                    lookup->gzip_mime_type = default_gzip_mimes[i];
-                }
-            }
-            if (i == DEFAULT_MIME_ARRAY_SIZE)
-            {
-                for (i; i < route->gzip_mime_types.length; i++)
-                {
-                    if (!strcmp(route->gzip_mime_types.data[i], mime_type))
+                    if (!strcmp(default_gzip_mimes[i], mime_type))
                     {
                         lookup->gzip_enable = true;
-                        lookup->gzip_mime_type = route->gzip_mime_types.data[i];
+                        lookup->gzip_mime_type = default_gzip_mimes[i];
+                    }
+                }
+                if (i == default_mime_array_size)
+                {
+                    for (i; i < route->gzip_mime_types.length; i++)
+                    {
+                        if (!strcmp(route->gzip_mime_types.data[i], mime_type))
+                        {
+                            lookup->gzip_enable = true;
+                            lookup->gzip_mime_type = route->gzip_mime_types.data[i];
+                        }
                     }
                 }
             }

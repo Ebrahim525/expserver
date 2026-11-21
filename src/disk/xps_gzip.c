@@ -116,7 +116,7 @@ void gzip_source_handler(void *ptr)
         return;
     }
 
-    gzip->total_in_len += gzip->transfer_buff->len;
+    gzip->total_out_len += gzip->transfer_buff->len;
 
     xps_buffer_destroy(gzip->transfer_buff);
 

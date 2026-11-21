@@ -90,6 +90,20 @@ void session_process_request(xps_session_t *session)
 
     int lookup_error;
     xps_config_lookup_t *lookup = xps_config_lookup(session->core->config, session->http_req, session->client, &lookup_error);
+    if (!lookup)
+    {
+        if (lookup_error == E_FAIL)
+        {
+            logger(LOG_DEBUG, "session_process_request", "Failed to allocate memory for config_lookup");
+            set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
+            return;
+        }
+        else
+        {
+            set_http_res(session, HTTP_NOT_FOUND);
+            return;
+        }
+    }
     session->lookup = lookup;
 
     // IP filtering
@@ -246,7 +260,7 @@ void session_process_request(xps_session_t *session)
                 if (accept_encoding && strstr(accept_encoding, "gzip") && lookup->gzip_enable && lookup->gzip_mime_type)
                 {
                     // gzip instance
-                    gzip = xps_gzip_create(lookup->gzip_level);
+                    gzip = xps_gzip_create(6);
                     if (!gzip)
                     {
                         logger(LOG_ERROR, "session_process-request()", "Failed to create gzip instance");
@@ -255,7 +269,7 @@ void session_process_request(xps_session_t *session)
                     {
                         if (xps_http_set_header(&(http_res->headers), "Content-Encoding", "gzip") != OK)
                         {
-                            logger(LOG_ERROR, "session_process_request()", "Failed to add Content-Length to header");
+                            logger(LOG_ERROR, "session_process_request()", "Failed to add Content-Encoding to header");
                             return;
                         }
 
@@ -263,7 +277,7 @@ void session_process_request(xps_session_t *session)
                         set_to_client_buff(session, buff);
                         xps_http_res_destroy(http_res);
 
-                        if (!xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, session->file->source, gzip->sink) && !xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, gzip->source, session->file_sink))
+                        if (!xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, session->file->source, gzip->sink) || !xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, gzip->source, session->file_sink))
                         {
                             logger(LOG_ERROR, "session_process_request()", "Failed to create file pipe");
 
