@@ -77,6 +77,11 @@ void set_http_res(xps_session_t *session, int http_status_code)
     set_to_client_buff(session, buff);
 
     xps_http_res_destroy(http_res);
+
+    if (session->lookup)
+    {
+        xps_config_lookup_destroy(session->lookup);
+    }
 }
 
 void session_process_request(xps_session_t *session)
@@ -234,26 +239,66 @@ void session_process_request(xps_session_t *session)
                     }
                 }
 
-                char file_size[32];
-                sprintf(file_size, "%zu", session->file->size);
-                if (xps_http_set_header(&(http_res->headers), "Content-Length", file_size) != OK)
+                xps_gzip_t *gzip = NULL;
+
+                // gzip
+                const char *accept_encoding = xps_http_get_header(&(session->http_req->headers), "Accept-Encoding");
+                if (accept_encoding && strstr(accept_encoding, "gzip") && lookup->gzip_enable && lookup->gzip_mime_type)
                 {
-                    logger(LOG_ERROR, "session_process_request()", "Failed to add Content-Length to header");
-                    return;
+                    // gzip instance
+                    gzip = xps_gzip_create(lookup->gzip_level);
+                    if (!gzip)
+                    {
+                        logger(LOG_ERROR, "session_process-request()", "Failed to create gzip instance");
+                    }
+                    if (gzip)
+                    {
+                        if (xps_http_set_header(&(http_res->headers), "Content-Encoding", "gzip") != OK)
+                        {
+                            logger(LOG_ERROR, "session_process_request()", "Failed to add Content-Length to header");
+                            return;
+                        }
+
+                        xps_buffer_t *buff = xps_http_res_serialize(http_res);
+                        set_to_client_buff(session, buff);
+                        xps_http_res_destroy(http_res);
+
+                        if (!xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, session->file->source, gzip->sink) && !xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, gzip->source, session->file_sink))
+                        {
+                            logger(LOG_ERROR, "session_process_request()", "Failed to create file pipe");
+
+                            set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
+                            session_check_destroy(session);
+                            xps_gzip_destroy(gzip);
+
+                            return;
+                        }
+
+                        session->gzip = gzip;
+                    }
                 }
-
-                xps_buffer_t *buff = xps_http_res_serialize(http_res);
-                set_to_client_buff(session, buff);
-
-                xps_http_res_destroy(http_res);
-
-                if (!xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, session->file->source, session->file_sink))
+                else
                 {
-                    logger(LOG_ERROR, "session_process_request()", "Failed to create file pipe");
+                    char file_size[32];
+                    sprintf(file_size, "%zu", session->file->size);
+                    if (xps_http_set_header(&(http_res->headers), "Content-Length", file_size) != OK)
+                    {
+                        logger(LOG_ERROR, "session_process_request()", "Failed to add Content-Length to header");
+                        return;
+                    }
 
-                    set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
-                    session_check_destroy(session);
-                    return;
+                    xps_buffer_t *buff = xps_http_res_serialize(http_res);
+                    set_to_client_buff(session, buff);
+                    xps_http_res_destroy(http_res);
+
+                    if (!xps_pipe_create(session->core, DEFAULT_BUFFER_SIZE, session->file->source, session->file_sink))
+                    {
+                        logger(LOG_ERROR, "session_process_request()", "Failed to create file pipe");
+
+                        set_http_res(session, HTTP_INTERNAL_SERVER_ERROR);
+                        session_check_destroy(session);
+                        return;
+                    }
                 }
             }
         }
@@ -580,6 +625,8 @@ xps_session_t *xps_session_create(xps_core_t *core, xps_connection_t *client)
     session->upstream_write_bytes = 0;
     session->file = NULL;
     session->http_req = NULL;
+    session->lookup = NULL;
+    session->gzip = NULL;
     set_to_client_buff(session, NULL);
     set_from_client_buff(session, NULL);
 

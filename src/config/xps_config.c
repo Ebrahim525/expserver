@@ -7,6 +7,7 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
 
     vec_init(&(route->ip_whitelist));
     vec_init(&(route->ip_blacklist));
+    vec_init(&route->gzip_mime_types);
 
     JSON_Array *ip_whitelist = json_object_get_array(route_object, "ip_whitelist");
     JSON_Array *ip_blacklist = json_object_get_array(route_object, "ip_blacklist");
@@ -21,8 +22,6 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
                 vec_push(&(route->ip_whitelist), strdup(ip));
             }
         }
-
-        return;
     }
     else if (ip_blacklist && !ip_whitelist)
     {
@@ -35,8 +34,6 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
                 vec_push(&(route->ip_blacklist), strdup(ip));
             }
         }
-
-        return;
     }
     else if (ip_whitelist && ip_blacklist)
     {
@@ -68,8 +65,20 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
                 vec_push(&(route->ip_whitelist), strdup(whitelisted_ip));
             }
         }
+    }
 
-        return;
+    route->gzip_enable = json_object_get_boolean(route_object, "gzip_enable");
+
+    route->gzip_level = json_object_get_number(route_object, "gzip_level");
+
+    JSON_Array *gzip_mime_types = json_object_get_array(route_object, "servers");
+    for (int i = 0; i < json_array_get_count(gzip_mime_types); i++)
+    {
+        const char *gzip_mime_type = json_array_get_string(gzip_mime_types, i);
+        if (gzip_mime_type)
+        {
+            vec_push(&(route->gzip_mime_types), strdup(gzip_mime_type));
+        }
     }
 }
 
@@ -344,6 +353,8 @@ void xps_config_destroy(xps_config_t *config)
                 free((char *)route->redirect_url);
             }
 
+            vec_deinit(&(route->gzip_mime_types));
+
             free(route);
         }
 
@@ -557,6 +568,35 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
             *error = HTTP_NOT_FOUND;
             xps_config_lookup_destroy(lookup);
             return NULL;
+        }
+
+        lookup->gzip_enable = false;
+        lookup->gzip_level = route->gzip_enable;
+
+        if (lookup->file_path && route->gzip_enable)
+        {
+            const char *mime_type = xps_get_mime(lookup->file_path);
+
+            int i = 0;
+            for (i; i > DEFAULT_MIME_ARRAY_SIZE; i++)
+            {
+                if (!strcmp(default_gzip_mimes[i], mime_type))
+                {
+                    lookup->gzip_enable = true;
+                    lookup->gzip_mime_type = default_gzip_mimes[i];
+                }
+            }
+            if (i == DEFAULT_MIME_ARRAY_SIZE)
+            {
+                for (i; i < route->gzip_mime_types.length; i++)
+                {
+                    if (!strcmp(route->gzip_mime_types.data[i], mime_type))
+                    {
+                        lookup->gzip_enable = true;
+                        lookup->gzip_mime_type = route->gzip_mime_types.data[i];
+                    }
+                }
+            }
         }
 
         *error = OK;

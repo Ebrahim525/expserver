@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <time.h>
 #include <dirent.h>
+#include <zlib.h>
 
 // 3rd party libraries
 #include "lib/vec/vec.h" // https://github.com/rxi/vec
@@ -31,6 +32,7 @@
 #define DEFAULT_BUFFER_SIZE 100000       // 100 KB
 #define DEFAULT_PIPE_BUFF_THRESH 1000000 // 1 MB
 #define DEFAULT_NULLS_THRESH 32
+#define DEFAULT_MIME_ARRAY_SIZE 6
 
 // Error constants
 #define OK 0            // Success
@@ -83,6 +85,7 @@ typedef struct xps_config_listener_s xps_config_listener_t;
 typedef struct xps_config_lookup_s xps_config_lookup_t;
 typedef struct xps_config_route_s xps_config_route_t;
 typedef struct xps_cliargs_s xps_cliargs_t;
+typedef struct xps_gzip_s xps_gzip_t;
 
 // Function typedefs
 typedef void (*xps_handler_t)(void *ptr);
@@ -106,5 +109,6 @@ typedef void (*xps_handler_t)(void *ptr);
 #include "http/xps_http_req.h"
 #include "http/xps_http_res.h"
 #include "config/xps_config.h"
+#include "disk/xps_gzip.h"
 
 #endif

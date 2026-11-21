@@ -36,6 +36,11 @@ struct xps_config_route_s
     vec_void_t ip_blacklist;
     u_int http_status_code;
     const char *redirect_url;
+
+    // gzip
+    bool gzip_enable;
+    int gzip_level;
+    vec_void_t gzip_mime_types;
 };
 
 typedef enum xps_req_type_e
@@ -51,20 +56,34 @@ struct xps_config_lookup_s
 {
     xps_req_type_t type;
 
-    /* file_serve */
+    // file_serve
     char *file_path; // absolute path
     char *dir_path;  // absolute path
 
-    /* reverse_proxy */
+    // reverse_proxy
     const char *upstream;
 
-    /* redirect */
+    // redirect
     u_int http_status_code;
     const char *redirect_url;
 
-    /* common */
+    // common
     vec_void_t ip_whitelist;
     vec_void_t ip_blacklist;
+
+    // gzip
+    bool gzip_enable;
+    int gzip_level;
+    const char *gzip_mime_type;
+};
+
+static const char *default_gzip_mimes[] = {
+    "text/html",
+    "text/css",
+    "text/plain",
+    "application/javascript",
+    "application/json",
+    "application/xml",
 };
 
 xps_config_t *xps_config_create(const char *config_path);
