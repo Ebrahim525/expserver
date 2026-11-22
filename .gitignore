@@ -1,2 +1,4 @@
 expserver-tester/
 src/build/
+src/xps
+src/xps-debug
