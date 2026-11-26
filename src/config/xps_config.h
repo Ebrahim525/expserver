@@ -41,6 +41,10 @@ struct xps_config_route_s
     bool gzip_enable;
     int gzip_level;
     vec_void_t gzip_mime_types;
+
+    // load balancing
+    const char *load_balancing;
+    u_long _round_robin_counter;
 };
 
 typedef enum xps_req_type_e

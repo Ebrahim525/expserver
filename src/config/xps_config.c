@@ -80,6 +80,13 @@ void parse_route(JSON_Object *route_object, xps_config_route_t *route)
             vec_push(&(route->gzip_mime_types), strdup(gzip_mime_type));
         }
     }
+
+    // load balancing
+    const char *load_balancing = json_object_dotget_string(route_object, "load_balancing");
+    if (load_balancing != NULL)
+    {
+        route->load_balancing = strdup(load_balancing);
+    }
 }
 
 xps_config_t *xps_config_create(const char *config_path)
@@ -222,6 +229,8 @@ xps_config_t *xps_config_create(const char *config_path)
             memset(route_config, 0, sizeof(xps_config_route_t));
             vec_init(&(route_config->index));
             vec_init(&(route_config->upstreams));
+            route_config->load_balancing = "round robin";
+            route_config->_round_robin_counter = 0;
             parse_route(route, route_config);
 
             vec_push(&(server_config->routes), route_config);
@@ -507,11 +516,32 @@ xps_config_lookup_t *xps_config_lookup(xps_config_t *config, xps_http_req_t *htt
     }
     else if (!strcmp(route->type, "reverse_proxy"))
     {
-        lookup->type = REQ_REVERSE_PROXY;
-        if (route->upstreams.length)
+        if (route->upstreams.length < 1)
         {
-            lookup->upstream = route->upstreams.data[0];
+            logger(LOG_ERROR, "xps_config_lookup()", "no upstream given in config");
+
+            *error = HTTP_INTERNAL_SERVER_ERROR;
+            return NULL;
         }
+
+        lookup->type = REQ_REVERSE_PROXY;
+
+        int index;
+        if (strcmp(route->load_balancing, "round_robin"))
+        {
+            index = route->_round_robin_counter++ % route->upstreams.length;
+        }
+        else if (strcmp(route->load_balancing, "ip_hash"))
+        {
+            int32_t ip;
+            if (!inet_pton(AF_INET, client->remote_ip, &ip))
+            {
+                logger(LOG_ERROR, "xps_config_lookup()", "Invalid client IP");
+            }
+            index = ntohl(ip) % route->upstreams.length;
+        }
+
+        lookup->upstream = route->upstreams.data[index];
     }
     else if (!strcmp(route->type, "redirect"))
     {
